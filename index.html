@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer"> 
+    
+    <title>Smart D</title>
+    
+    <link rel="icon" href="admin/icons/icon-192x192.png" type="image/png">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    
+    <link rel="manifest" href="/manifest.json">
+
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+
+    <style>
+        /* ESTILOS GERAIS */
+        body, html { height: 100%; margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #ffffff; }
+        
+        .main-container {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+        }
+
+        /* --- ÁREA DA IMAGEM DE FUNDO (ESQUERDA) --- */
+        .branding-side {
+            display: none; /* Mobile: some */
+            flex: 3; /* AUMENTADO de 2 para 3 */
+            position: relative;
+            overflow: hidden;
+            background-color: #0d6efd;
+        }
+
+        /* A Imagem Real do Fundo */
+        .bg-img {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover; 
+            object-position: left center;
+            z-index: 0;
+        }
+        
+        /* O Filtro Azulado por cima da imagem */
+        .overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, rgba(0, 50, 160, 0.3), rgba(0, 0, 0, 0.05));
+            z-index: 1;
+        }
+
+        /* --- ÁREA DO LOGIN (DIREITA) --- */
+        .login-side {
+            flex: 1; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            /* APLICANDO O EFEITO AZULADO AQUI AGORA */
+            background: linear-gradient(135deg, #eceff3 0%, #ffffff 100%);
+            position: relative; 
+            z-index: 10;
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 400px;
+            padding: 2rem;
+        }
+
+        /* LOGO E TÍTULO */
+        .logo-area {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+        .logo-area img {
+            max-height: 120px; 
+            margin-bottom: 1rem;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .app-title {
+            color: #0055aa; 
+            font-weight: 700;
+            margin-bottom: 0.2rem;
+            font-size: 1.8rem;
+        }
+        .app-subtitle {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        /* CAMPOS */
+        .form-control {
+            border-radius: 8px;
+            padding: 0.8rem 1rem;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+        }
+        .form-control:focus {
+            background-color: #fff;
+            border-color: #0055aa;
+            box-shadow: 0 0 0 4px rgba(0, 85, 170, 0.1);
+        }
+        
+        .input-group-text {
+            border-radius: 0 8px 8px 0;
+            cursor: pointer;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-left: none;
+        }
+        
+        #passwordInput {
+            border-right: none;
+            border-radius: 8px 0 0 8px;
+        }
+
+        .btn-primary {
+            border-radius: 8px;
+            padding: 0.8rem;
+            font-weight: 600;
+            background-color: #0044cc;
+            border: none;
+            transition: all 0.2s;
+        }
+        .btn-primary:hover {
+            background-color: #003399;
+            transform: translateY(-1px);
+        }
+
+        /* DESKTOP */
+        @media (min-width: 992px) {
+            .branding-side { display: block; }
+            .login-side { box-shadow: -5px 0 25px rgba(0,0,0,0.05); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="main-container">
+        <div class="branding-side">
+            <img src="admin/icons/Plano-Fundo.jpg" alt="Fundo Posto" class="bg-img">
+        </div>
+
+        <div class="login-side">
+            <div class="login-card">
+                <div class="logo-area">
+                    <img src="admin/icons/icon-512x512.png" alt="Grupo Decio Logo">
+                    
+                    <h3 class="app-title">Smart D</h3>
+                    <p class="app-subtitle">Gestão</p>
+                </div>
+
+                <form id="loginForm">
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-secondary small">E-mail ou CPF</label>
+                        <input type="text" id="loginInput" class="form-control" placeholder="000.000.000-00 ou email@grupodecio.com.br" required>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-secondary small">Senha</label>
+                        <div class="input-group">
+                            <input type="password" id="passwordInput" class="form-control" placeholder="******" required>
+                            <span class="input-group-text text-muted" id="togglePassword">
+                                <i class="bi bi-eye-slash" id="eyeIcon"></i>
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 mt-5">
+                        <button type="submit" id="btnEntrar" class="btn btn-primary btn-lg">Entrar</button>
+                    </div>
+                </form>
+                <div id="msgErro" class="text-center text-danger small mt-3 fw-bold"></div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // --- 1. MOSTRAR/OCULTAR SENHA ---
+        const togglePasswordBtn = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('passwordInput');
+        const eyeIcon = document.getElementById('eyeIcon');
+
+        togglePasswordBtn.addEventListener('click', function () {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            eyeIcon.classList.toggle('bi-eye');
+            eyeIcon.classList.toggle('bi-eye-slash');
+        });
+
+        // --- 2. MÁSCARA INTELIGENTE CPF ---
+        const loginInput = document.getElementById('loginInput');
+
+        loginInput.addEventListener('input', function (e) {
+            let value = e.target.value;
+            
+            if (/^\d/.test(value)) {
+                value = value.replace(/\D/g, ''); 
+                if (value.length > 11) value = value.slice(0, 11);
+
+                if (value.length > 9) {
+                    value = value.replace(/^(\d{3})(\d{3})(\d{3})(\d{1,2}).*/, '$1.$2.$3-$4');
+                } else if (value.length > 6) {
+                    value = value.replace(/^(\d{3})(\d{3})(\d{1,3}).*/, '$1.$2.$3');
+                } else if (value.length > 3) {
+                    value = value.replace(/^(\d{3})(\d{1,3}).*/, '$1.$2');
+                }
+                
+                e.target.value = value;
+            }
+        });
+
+        // --- 3. LOGIN ---
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const loginInput = document.getElementById('loginInput');
+        const passwordInput = document.getElementById('passwordInput');
+        const btn = document.getElementById('btnEntrar');
+        const msg = document.getElementById('msgErro');
+
+        // Tratamento da entrada
+        const entradaRaw = loginInput.value;
+        const entradaLimpa = /^\d/.test(entradaRaw) ? entradaRaw.replace(/\D/g, '') : entradaRaw.trim();
+        const eCpf = /^\d+$/.test(entradaLimpa); 
+        let emailParaLogin = eCpf ? `${entradaLimpa}@frota.com` : entradaLimpa;
+
+        btn.disabled = true; 
+        btn.innerText = "Verificando..."; 
+        msg.innerText = "";
+
+        try {
+            const { data, error } = await clienteSupabase.auth.signInWithPassword({
+                email: emailParaLogin,
+                password: passwordInput.value
+            });
+
+            if (error) throw error;
+
+            // Busca perfil
+            const { data: perfil, error: perfilError } = await clienteSupabase
+                .from('perfis')
+                .select('*')
+                .eq('id', data.user.id)
+                .single();
+
+            if (perfilError) throw new Error("Perfil não localizado.");
+
+            // --- ROTEAMENTO INTELIGENTE (HUB) ---
+            
+            // 1. Motorista Comum -> Vai direto
+            if (perfil.funcao === 'motorista') {
+                window.location.replace('app/index.html'); 
+            } 
+            // 2. Manutenção / Admin
+            else if (perfil.funcao === 'manutencao' || perfil.funcao === 'manutentor' || perfil.funcao === 'admin') {
+                
+                if (eCpf) {
+                    // LOGIN MOBILE (CPF) -> Abre o HUB de Decisão
+                    
+                    window.location.replace('app/manutencao.html');
+                    
+                } else {
+                    // LOGIN DESKTOP (Email) -> Vai para Admin
+                    window.location.href = 'admin/index.html';
+                }
+
+            } 
+            else {
+                // Outros administrativos
+                window.location.href = 'admin/index.html';
+            }
+
+        } catch (erro) {
+            console.error("Erro no login:", erro);
+            msg.innerText = "Falha: Credenciais incorretas ou erro de perfil.";
+            btn.disabled = false; 
+            btn.innerText = "Entrar";
+        }
+    });
+
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            // Registra o SW da raiz com escopo global
+            navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
+            .then(reg => console.log('PWA Raiz (Login) registrado!'))
+            .catch(err => console.error('Erro ao registrar PWA Raiz:', err));
+        });
+    }
+
+    </script>
+</body>
+</html>

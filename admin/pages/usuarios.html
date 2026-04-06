@@ -1,0 +1,165 @@
+<div class="card" style="height: 100%; display: flex; flex-direction: column;">
+    <div class="toolbar">
+        <div class="filter-container" id="container-filtros"></div>
+        <div style="display:flex; flex-direction:column; gap:5px; align-items:flex-end; flex:1;">
+            <button class="btn-new-user" onclick="abrirModalUsuario()" title="Cadastrar novo usuário">
+                <i class="fas fa-user-plus"></i> Novo Usuário
+            </button>
+            <button class="btn-add-filter" onclick="adicionarLinhaFiltro()">
+                <i class="fas fa-filter"></i> + Adicionar Filtro
+            </button>
+        </div>
+    </div>
+
+    <div class="stats-bar">
+        <div class="stats-count" id="lbl-contagem">Carregando...</div>
+        <div class="stats-filters" id="lbl-filtros-ativos"><i class="fas fa-info-circle"></i></div>
+    </div>
+
+    <div class="table-wrapper">
+        <table id="tabela-usuarios">
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Login</th>
+                    <th>Função</th>
+                    <th>Unidades</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tbody-usuarios">
+                <tr><td colspan="6" class="text-center p-3">Carregando...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-usuario">
+    <div class="modal-box" style="width: 700px;"> <div class="modal-header" id="modal-titulo">Novo Usuário</div>
+        
+        <form id="form-usuario">
+            <input type="hidden" id="usr-id">
+
+            <div class="tab-nav">
+                <button type="button" class="tab-btn active" onclick="alternarAbaUsuario('geral')">Dados Gerais</button>
+                <button type="button" class="tab-btn" onclick="alternarAbaUsuario('obs')">Observações</button>
+            </div>
+
+            <div id="tab-geral" class="tab-content active">
+                
+                <div style="display: flex; gap: 15px;">
+                    <div class="form-group" style="width: 80px;"> <label>ID</label>
+                        <input type="text" class="form-control" id="usr-matricula" placeholder="0000" maxlength="8" style="text-align: center;">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Nome Completo</label>
+                        <input type="text" class="form-control" id="usr-nome" required>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 15px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Login (E-mail ou CPF)</label>
+                        <input type="text" class="form-control" id="usr-login" placeholder="000.000.000-00" required>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Senha</label>
+                        <div class="input-group-password">
+                            <input type="password" class="form-control" id="usr-senha" placeholder="******">
+                            <i class="fas fa-eye" onclick="toggleSenhaModal()" id="icon-ver-senha"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 15px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Perfil (Função)</label>
+                        <select class="form-control" id="usr-perfil" required>
+                            <option value="motorista">Motorista</option>
+                            <option value="manutentor">Manutentor</option>
+                            <option value="analista">Analista de Frota</option>
+                            <option value="especialista">Especialista de Logística</option>
+                            <option value="coordenador">Coordenador</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Unidade de Lotação (Principal)</label>
+                        <select class="form-control" id="usr-unidade-lotacao" required>
+                            <option value="">Carregando...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Acesso ao Sistema (Multiseleção)</label>
+                    <div id="container-checkbox-unidades" style="max-height: 120px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; border-radius: 5px; background: #f9f9f9;">
+                        <p style="color:#999; font-size:0.8rem; text-align: center;">Carregando unidades...</p>
+                    </div>
+                    <small style="color:#666; font-size:0.8rem;">* A unidade de lotação será adicionada automaticamente ao acesso.</small>
+                </div>
+            </div>
+
+            <div id="tab-obs" class="tab-content" style="display: none;">
+                <div class="form-group" style="height: 100%;">
+                    <label><i class="fas fa-sticky-note"></i> Notas Internas / Histórico Manual</label>
+                    <textarea class="form-control" id="usr-observacao" style="height: 300px; resize: none;" placeholder="Digite aqui informações complementares sobre o usuário..."></textarea>
+                </div>
+            </div>
+
+            <div class="modal-footer" style="margin-top: 15px;">
+                <button type="button" class="btn-cancel" onclick="fecharModalCheck()">Cancelar</button>
+                <button type="submit" class="btn-primary">Salvar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-logs">
+    <div class="modal-box" style="width: 600px;">
+        <div class="modal-header">Histórico</div>
+        <div class="log-timeline" id="timeline-logs"></div>
+        <div class="modal-footer">
+            <button type="button" class="btn-cancel" onclick="fecharModalLogs()">Fechar</button>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* ESTILOS DAS ABAS */
+    .tab-nav {
+        display: flex;
+        border-bottom: 2px solid #eee;
+        margin-bottom: 20px;
+    }
+    
+    .tab-btn {
+        padding: 10px 20px;
+        background: none;
+        border: none;
+        border-bottom: 3px solid transparent;
+        font-weight: 600;
+        color: #666;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .tab-btn:hover {
+        color: #003399;
+        background-color: #f8f9fa;
+    }
+    
+    .tab-btn.active {
+        color: #003399;
+        border-bottom-color: #003399;
+    }
+
+    .tab-content {
+        animation: fadeIn 0.3s ease-out;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+</style>

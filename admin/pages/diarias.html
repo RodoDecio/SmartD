@@ -1,0 +1,78 @@
+<div class="card" style="height: 100%; display: flex; flex-direction: column;">
+    
+    <div class="toolbar">
+        
+        <div style="flex:1; display:flex; justify-content:flex-end;">
+            <button class="btn-new-user" onclick="abrirModalDiaria()" title="Novo Valor">
+                <i class="fas fa-dollar-sign"></i> Novo Valor CCT
+            </button>
+        </div>
+    </div>
+
+    <div class="stats-bar">
+        <div class="stats-count" id="lbl-contagem-diarias">Carregando...</div>
+    </div>
+
+    <div class="table-wrapper">
+        <table id="tabela-diarias">
+            <thead>
+                <tr>
+                    <th>Unidade</th>
+                    <th>Valor Refeição</th>
+                    <th>Valor Jantar</th>
+                    <th>Valor Diária</th>
+                    <th>Valor Alimentação</th>
+                    <th>Status</th>
+                    <th style="width: 160px;">Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tbody-diarias">
+                <tr><td colspan="6" class="text-center p-3">Carregando... <i class="fas fa-spinner fa-spin"></i></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-diaria">
+    <div class="modal-box" style="width: 600px;">
+        <div class="modal-header" id="titulo-modal-diaria">Novo Valor CCT</div>
+        <form id="form-diaria">
+            <input type="hidden" id="dia-id">
+            
+            <div class="form-group">
+                <label>Unidade</label>
+                <select class="form-control" id="dia-unidade" required>
+                    <option value="">Carregando...</option>
+                </select>
+            </div>
+
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #eee; margin-bottom: 15px;">
+                <label style="display:block; margin-bottom:10px; font-weight:bold; color:#003399;">Composição do Valor (R$)</label>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label>Valor Refeição</label>
+                        <input type="number" class="form-control" id="dia-vlr-refeicao" step="0.01" placeholder="0,00">
+                    </div>
+                    <div class="form-group">
+                        <label>Valor Jantar</label>
+                        <input type="number" class="form-control" id="dia-vlr-jantar" step="0.01" placeholder="0,00">
+                    </div>
+                    <div class="form-group">
+                        <label>Valor Diária</label>
+                        <input type="number" class="form-control" id="dia-vlr-diaria" step="0.01" placeholder="0,00">
+                    </div>
+                    <div class="form-group">
+                        <label>Valor Alimentação</label>
+                        <input type="number" class="form-control" id="dia-vlr-alimentacao" step="0.01" placeholder="0,00">
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" onclick="fecharModalDiaria()">Cancelar</button>
+                <button type="submit" class="btn-primary">Salvar</button>
+            </div>
+        </form>
+    </div>
+</div>

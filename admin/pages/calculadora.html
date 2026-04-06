@@ -1,0 +1,97 @@
+<div class="card" style="height: 100%; display: flex; flex-direction: column; overflow: hidden; width: 100%; background: #f4f6f9; padding: 0;">
+    
+    <div style="background: var(--cor-primaria); color: white; padding: 10px 20px; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h2 style="margin: 0; font-size: 1.2rem;"><i class="fas fa-calculator"></i> Calculadora de Rateio</h2>
+            <p style="margin: 2px 0 0 0; font-size: 0.8rem; opacity: 0.8;">Distribuição de despesas por placa</p>
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <button onclick="abrirModalCalculadoraAdd()" style="background: #28a745; border: none; color: white; padding: 6px 15px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: bold; transition: 0.2s; box-shadow: 0 2px 4px rgba(40,167,69,0.3);" title="Adicionar Placa (Atalho: Enter)">
+                <i class="fas fa-plus-circle"></i> Adicionar
+            </button>
+
+            <button onclick="copiarRateioParaAreaTransferencia()" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; transition: 0.2s;" title="Copiar para WhatsApp/Email" onmouseover="this.style.background='rgba(40,167,69,0.8)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+                <i class="fas fa-copy"></i> Copiar
+            </button>
+
+            <button onclick="limparCalculadora()" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; transition: 0.2s;" title="Zerar Calculadora" onmouseover="this.style.background='rgba(220,53,69,0.8)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+                <i class="fas fa-trash-alt"></i> Limpar
+            </button>
+
+            <div style="background: rgba(255,255,255,0.1); padding: 8px 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); text-align: right; display: flex; align-items: center; gap: 10px;">
+                <label style="font-size: 0.75rem; text-transform: uppercase; font-weight: bold; opacity: 0.9; margin: 0;">Valor Total (R$):</label>
+                <input type="number" id="calc-total-nota" class="form-control" style="font-size: 1.2rem; font-weight: bold; width: 160px; height: 32px; text-align: right; background: white; color: var(--cor-primaria); padding: 0 8px;" placeholder="0.00" step="0.01" oninput="aoMudarTotalManual()">
+            </div>
+        </div>
+    </div>
+
+    <div style="flex: 1; overflow-y: auto; padding: 15px 20px; background: #fff;">
+        <table class="table" style="width: 100%; border: 1px solid #dee2e6; border-radius: 8px; overflow: hidden; margin: 0;">
+            <thead style="background: #f8f9fa;">
+                <tr>
+                    <th style="padding: 8px 15px; font-size: 0.85rem;">Veículo / Placa</th>
+                    <th style="padding: 8px 15px; text-align: center; width: 30%;">Valor Rateado (R$)</th>
+                    <th style="padding: 8px 15px; text-align: center; width: 25%;">Percentual (%)</th>
+                    <th style="padding: 8px 15px; text-align: center; width: 60px;"></th>
+                </tr>
+            </thead>
+            <tbody id="tbody-calculadora">
+                </tbody>
+        </table>
+    </div>
+
+    <div style="background: #343a40; color: white; padding: 10px 20px; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; gap: 40px;">
+            <div>
+                <span style="font-size: 0.7rem; color: #aaa; text-transform: uppercase;">Soma (Valores)</span>
+                <div id="calc-soma-valores" style="font-size: 1.2rem; font-weight: bold; color: #28a745;">R$ 0,00</div>
+            </div>
+            <div>
+                <span style="font-size: 0.7rem; color: #aaa; text-transform: uppercase;">Soma (%)</span>
+                <div id="calc-soma-percentuais" style="font-size: 1.2rem; font-weight: bold; color: #17a2b8;">0.00%</div>
+            </div>
+        </div>
+        <div style="text-align: right;">
+            <span style="font-size: 0.7rem; color: #aaa; text-transform: uppercase;">Diferença / Restante</span>
+            <div id="calc-diferenca" style="font-size: 1.4rem; font-weight: 900; color: #ffc107;">R$ 0,00</div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-calc-add" style="z-index: 1500;">
+        <div class="modal-box" style="width: 400px; padding: 0;">
+            <div class="modal-header" style="background: var(--cor-primaria); color: white; padding: 15px;">
+                <h4 style="margin: 0; font-size: 1.1rem;"><i class="fas fa-plus-circle"></i> Adicionar Rateio</h4>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                
+                <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-left: 4px solid var(--cor-primaria); padding: 10px 15px; margin-bottom: 15px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 0.8rem; color: #666; font-weight: bold; text-transform: uppercase;">Restante na Nota:</span>
+                    <span id="modal-valor-restante" style="font-size: 1.2rem; font-weight: 900; color: var(--cor-primaria);">R$ 0,00</span>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label style="font-weight: bold; color: #555; font-size: 0.85rem;">Placa do Veículo</label>
+                    <select id="calc-placa" class="form-control" style="font-weight: bold; font-size: 1.1rem; height: 40px;" onkeydown="verificarAtalhoCalculadoraModal(event, 'calc-valor')">
+                        <option value="">Selecione...</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 15px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label style="font-weight: bold; color: #555; font-size: 0.85rem;">Valor (R$)</label>
+                        <input type="number" id="calc-valor" class="form-control" placeholder="0.00" step="0.01" style="font-size: 1.1rem; height: 40px;" oninput="calcularPercentualDoInputAdd()" onkeydown="verificarAtalhoCalculadoraModal(event, 'enter')">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label style="font-weight: bold; color: #555; font-size: 0.85rem;">Percentual (%)</label>
+                        <input type="number" id="calc-percentual" class="form-control" placeholder="0.00" step="0.01" style="font-size: 1.1rem; height: 40px;" oninput="calcularValorDoInputAdd()" onkeydown="verificarAtalhoCalculadoraModal(event, 'enter')">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 15px; text-align: right; background: #f8f9fa; border-top: 1px solid #eee;">
+                <button type="button" class="btn-cancel" onclick="fecharModalCalculadoraAdd()">Cancelar</button>
+                <button type="button" class="btn-primary" onclick="adicionarItemRateio()"><i class="fas fa-check"></i> Adicionar</button>
+            </div>
+        </div>
+    </div>
+
+</div>

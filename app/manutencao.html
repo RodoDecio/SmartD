@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Manutenção Mobile - Smart D</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root { 
+            --cor-primary: #003366; 
+            --cor-bg: #f4f6f9; 
+            --cor-ok: #28a745; 
+            --cor-nok: #dc3545; 
+        }
+        
+        * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        
+        body { 
+            margin: 0; 
+            background: var(--cor-bg); 
+            color: #333; 
+            height: 100dvh; 
+            display: flex; 
+            flex-direction: column;
+            position: relative; /* Necessário para o fundo */
+            z-index: 1;
+        }
+
+        /* --- MARCA D'ÁGUA (IGUAL MOTORISTA) --- */
+        body::before {
+            content: "";
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%; height: 100%;
+            background-image: url('../admin/icons/icon-512x512.png'); /* Ícone da aplicação */
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: 150px; 
+            opacity: 0.05; /* Bem suave */
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* --- LOADER CENTRALIZADO --- */
+        #loader { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(244, 246, 249, 0.9); /* Fundo semi-transparente */
+            backdrop-filter: blur(4px);
+            z-index: 9999; 
+            display: none; 
+            align-items: center; 
+            justify-content: center; 
+            flex-direction: column; 
+        }
+        .spinner-custom {
+            width: 50px; height: 50px;
+            border: 5px solid rgba(0, 51, 102, 0.2);
+            border-top: 5px solid var(--cor-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* HEADER */
+        .header { background: var(--cor-primary); color: white; padding: 15px; position: sticky; top: 0; z-index: 100; display:flex; justify-content:space-between; align-items:center; }
+        .header h3 { margin: 0; font-size: 1.1rem; }
+
+        /* TELA DE ESCOLHA (HUB) */
+        #screen-hub { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 20px; padding: 20px; }
+        .btn-hub { width: 100%; max-width: 300px; padding: 30px 20px; border: none; border-radius: 15px; color: white; font-size: 1.2rem; font-weight: bold; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 10px; transition: transform 0.2s; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .btn-hub:active { transform: scale(0.95); }
+        .btn-new { background: var(--cor-primary); }
+        .btn-validate { background: var(--cor-ok); }
+        .btn-hub i { font-size: 2.5rem; }
+        .btn-hub span { font-size: 0.9rem; font-weight: normal; opacity: 0.9; }
+
+        /* LISTA TAREFAS (OFICINA) */
+        #screen-list { display: none; flex-direction: column; height: 100%; }
+        .content-scroll { flex: 1; overflow-y: auto; padding-bottom: 20px; }
+        .btn-action { width: 100%; padding: 14px; background: var(--cor-primary); color: white; border: none; border-radius: 10px; font-weight: bold; margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+
+        /* MODAL TRABALHO */
+        .modal-full { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--cor-bg); z-index: 200; display: none; flex-direction: column; }
+        
+        /* Aplica a marca d'água também na tela de trabalho para manter consistência */
+        .modal-full::before {
+            content: ""; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 100%; height: 100%; background-image: url('../admin/icons/icon-512x512.png');
+            background-repeat: no-repeat; background-position: center; background-size: 150px; opacity: 0.05; z-index: -1; pointer-events: none;
+        }
+
+        .modal-content { flex: 1; overflow-y: auto; padding: 15px; position: relative; z-index: 2; }
+        .item-nok { background: white; padding: 15px; border-radius: 10px; border-left: 5px solid var(--cor-nok); margin-bottom: 15px; }
+        .form-control { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 10px; }
+        
+        .card-task {
+            background: white; margin: 10px 15px; padding: 12px 15px; border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 5px solid var(--cor-primary);
+            display: flex; flex-direction: column; gap: 8px;
+        }
+
+        .card-header-row { display: flex; justify-content: space-between; align-items: center; }
+        .task-placa { font-size: 1.1rem; font-weight: 800; }
+        .task-modelo { font-size: 0.75rem; color: #666; font-weight: 600; }
+        .badge-status { font-size: 0.65rem; font-weight: bold; padding: 4px 8px; border-radius: 12px; text-transform: uppercase; color: white; }
+        .card-info-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: #777; background: #f8f9fa; padding: 6px 10px; border-radius: 6px; }
+        
+        .btn-action-small {
+            width: 100%; padding: 8px; font-size: 0.85rem; border: none; border-radius: 6px;
+            color: white; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px;
+        }
+        .info-left { display: flex; flex-direction: column; gap: 2px; }
+        .info-right { text-align: right; display: flex; flex-direction: column; gap: 2px; }
+        .task-meta { display: flex; justify-content: space-between; font-size: 0.75rem; color: #888; margin-bottom: 10px; }
+        .task-title { font-size: 1.4rem; font-weight: 800; color: var(--cor-primary); margin-bottom: 5px; }
+        .task-info { background: #f8f9fa; padding: 10px; border-radius: 8px; font-size: 0.85rem; margin-top: 10px; }
+        .bubble-driver { background: #fff5f5; padding: 12px; border-radius: 10px; font-size: 0.9rem; margin: 10px 0; border: 1px solid #ffebeb; }
+        .btn-ver-foto { display: inline-block; margin-top: 8px; color: var(--cor-primary); text-decoration: none; font-weight: bold; font-size: 0.8rem; }
+        .empty-state { text-align: center; padding: 60px 20px; color: #ccc; }
+
+        .btn-foto-resolucao {
+            background: #fff; color: var(--cor-primary); border: 1px dashed var(--cor-primary);
+            padding: 10px; width: 100%; border-radius: 8px; margin-top: 10px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s;
+        }
+        .btn-foto-resolucao.com-foto { background: #e8f5e9; color: var(--cor-ok); border-style: solid; border-color: var(--cor-ok); }
+        .preview-mini { width: 100%; height: 150px; object-fit: cover; border-radius: 8px; margin-top: 10px; display: none; border: 1px solid #ddd; }
+
+        /* Modal de Confirmação Personalizado */
+        .modal-confirm { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+        .modal-confirm-box { background: white; width: 85%; max-width: 320px; border-radius: 16px; padding: 20px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); animation: popUp 0.2s ease-out; }
+        .modal-confirm-title { font-size: 1.1rem; font-weight: 800; color: var(--cor-primary); margin-bottom: 10px; }
+        .modal-confirm-text { font-size: 0.9rem; color: #666; margin-bottom: 20px; line-height: 1.4; }
+        .modal-confirm-actions { display: flex; gap: 10px; }
+        .btn-confirm-action { flex: 1; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.9rem; }
+        .btn-cancel { background: #f1f3f5; color: #555; }
+        .btn-confirm { background: var(--cor-primary); color: white; }
+
+        @keyframes popUp { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        /* Modal de Imagem (Zoom) */
+        .modal-imagem { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 3000; display: none; align-items: center; justify-content: center; flex-direction: column; }
+        .modal-imagem img { max-width: 95%; max-height: 80%; border-radius: 8px; box-shadow: 0 0 20px rgba(255,255,255,0.2); }
+        .btn-fechar-img { margin-top: 20px; padding: 10px 30px; background: white; border: none; border-radius: 20px; font-weight: bold; }
+
+        /* Barra de Filtros Fixa */
+        .filter-bar-sticky { position: sticky; top: 0; z-index: 10; background: #fff; padding: 10px; border-bottom: 1px solid #ddd; display: flex; gap: 5px; overflow-x: auto; }
+        .filter-chip { padding: 6px 12px; border-radius: 20px; border: 1px solid #ccc; background: #f8f9fa; color: #666; font-size: 0.8rem; font-weight: 600; white-space: nowrap; cursor: pointer; transition: all 0.2s; }
+        .filter-chip.active { background: var(--cor-primary); color: white; border-color: var(--cor-primary); }
+
+        /* Estilo do Item (Card) */
+        .item-card { background: white; padding: 15px; margin: 10px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 5px solid #ccc; }
+        .item-card.status-nok { border-left-color: var(--cor-nok); }
+        .item-card.status-ok { border-left-color: var(--cor-ok); }
+        .item-card.status-corrigido { border-left-color: #17a2b8; background-color: #e5ecec; }
+
+        .btn-ver-foto { background: #ffebeb; color: #d63031; border: 1px solid #ffcccc; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; margin-top: 5px; text-decoration: none; }
+        .btn-save-item { background: var(--cor-primary); color: white; border: none; width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        .input-group-row { display: flex; gap: 8px; align-items: flex-start; }
+    </style>
+</head>
+<body>
+
+    <div id="loader">
+        <i class="fas fa-spinner fa-spin fa-2x" style="color: var(--cor-primary);"></i>
+        <p style="margin-top:10px; font-weight:bold;">Processando...</p>
+    </div>
+
+    <div id="screen-hub">
+        <div style="text-align: center; margin-bottom: 20px;">
+            <img src="../admin/icons/icon-512x512.png" style="height: 80px; margin-bottom: 10px;">
+            <h2 id="saudacao-usuario" style="color: var(--cor-primary);">Olá...</h2>
+            <p style="color: #666;">O que deseja fazer agora?</p>
+        </div>
+
+        <button class="btn-hub btn-new" onclick="irParaNovoChecklist()">
+            <i class="fas fa-clipboard-list"></i>
+            Realizar Novo Checklist
+            <span>Fluxo de inspeção diária</span>
+        </button>
+
+        <button class="btn-hub btn-validate" onclick="abrirOficinaMobile()">
+            <i class="fas fa-tools"></i>
+            Validar Pendências
+            <span>Tratar itens Não Conformes</span>
+        </button>
+
+        <a href="../index.html" style="margin-top: 20px; color: #777; text-decoration: none; font-size: 0.9rem;">
+            <i class="fas fa-sign-out-alt"></i> Sair do Sistema
+        </a>
+    </div>
+
+    <div id="screen-list" style="display:none; flex-direction:column; height:100vh;">
+        <div class="app-header" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background-color: #0a2e5c; color: white;">
+    
+            <h3 style="margin: 0; font-size: 1.2rem; display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-tools"></i> Área Técnica
+            </h3>
+            
+            <div style="display: flex; gap: 15px; align-items: center;">
+                
+                <button class="btn-icon" style="background: none; border: none; color: white; font-size: 1rem; cursor: pointer; display: flex; align-items: center; gap: 5px;" onclick="voltarAoHub()">
+                    <i class="fas fa-arrow-left"></i> Voltar
+                </button>
+
+                <button class="btn-icon" style="background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer;" onclick="logoutApp()">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </div>
+
+        <div style="background: #fff; padding: 12px; display: flex; gap: 8px; border-bottom: 1px solid #eee; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+            <select id="sel-filtro-tipo" class="form-control" style="flex: 1; margin-bottom:0;" onchange="configurarInputValor()">
+                <option value="" disabled selected>Filtrar por...</option>
+                <option value="placa">Placa do Veículo</option>
+                <option value="status">Status do Chamado</option>
+            </select>
+            
+            <div id="wrapper-filtro-valor" style="flex: 1.5;">
+                <select id="sel-filtro-valor" class="form-control" style="margin-bottom:0;" disabled>
+                    <option value="">Selecione o tipo...</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="content-scroll" id="lista-tarefas-container" style="flex:1; overflow-y:auto;"></div>
+
+        <div class="footer-user-bar" style="background:#fff; border-top:1px solid #ddd; padding:10px 15px; display:flex; align-items:center; gap:12px; flex-shrink:0;">
+            <div class="avatar-circle" style="width:40px; height:40px; background:var(--cor-primary); color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:1.2rem;">
+                <span id="user-initials">M</span>
+            </div>
+            <div style="flex:1;">
+                <div id="footer-user-name" style="font-weight:bold; font-size:0.9rem; color:#333;">Carregando...</div>
+                <div id="footer-user-role" style="font-size:0.75rem; color:#666; text-transform:uppercase;">Manutenção</div>
+            </div>
+            <div style="width:120px;">
+                <select id="sel-unidade-rodape" class="form-control" style="font-size:0.75rem; padding:4px; margin-bottom:0;" onchange="carregarTarefasOficina()">
+                    <option value="TODAS">Todas Unid.</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div id="screen-work" class="modal-full">
+        <div class="header" style="background: var(--cor-primary); padding: 10px 15px;">
+            <button onclick="fecharTarefa(true)" style="background:none; border:none; color:white; font-size:1.1rem; width:40px; text-align:left;">
+                <i class="fas fa-arrow-left"></i>
+            </button>
+            
+            <div style="flex:1; text-align:center; line-height:1.2;">
+                <div id="work-placa" style="font-size:1.1rem; font-weight:800;">---</div>
+                <div style="font-size:0.75rem; opacity:0.9; font-weight:normal; margin-top:2px;">
+                    <span id="work-id">#--</span> • <span id="work-modelo">Modelo</span>
+                </div>
+                <div id="work-km" style="font-size:0.7rem; background:rgba(255,255,255,0.2); display:inline-block; padding:1px 6px; border-radius:4px; margin-top:3px;">
+                    --- km
+                </div>
+            </div>
+
+            <div style="width:40px;"></div>
+        </div>
+
+        <div class="modal-content" id="work-content" style="background: #f4f6f9;"></div>
+        
+        <div style="padding:15px; background:white; border-top:1px solid #ddd; box-shadow: 0 -2px 10px rgba(0,0,0,0.05);">
+            <button class="btn-action" style="background:var(--cor-ok); margin:0;" onclick="concluirServico()">
+                <i class="fas fa-check-double"></i> CONCLUIR REPARO
+            </button>
+        </div>
+    </div>
+
+    <div id="modal-assumir-tarefa" class="modal-confirm">
+        <div class="modal-confirm-box">
+            <div class="modal-confirm-title"><i class="fas fa-hand-paper"></i> Assumir Chamado</div>
+            <div class="modal-confirm-text">
+                Deseja se tornar responsável pela manutenção do veículo <b id="lbl-veiculo-modal" style="color:var(--cor-primary)">---</b>?
+            </div>
+            <div class="modal-confirm-actions">
+                <button class="btn-confirm-action btn-cancel" onclick="fecharModalAssumir()">Não</button>
+                
+                <button class="btn-confirm-action btn-confirm" onclick="confirmarAssumirAction()">Sim, Assumir</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-visualizar-foto" class="modal-imagem" onclick="fecharModalFoto()">
+        <img id="img-full-view" src="">
+        <button class="btn-fechar-img">Fechar</button>
+    </div>
+
+    <div id="modal-concluir-reparo" class="modal-confirm">
+        <div class="modal-confirm-box">
+            <div class="modal-confirm-title" style="color:var(--cor-ok)">
+                <i class="fas fa-check-double"></i> Concluir Reparo
+            </div>
+            
+            <div class="modal-confirm-text" id="lbl-msg-conclusao">
+                Deseja finalizar a manutenção e enviar para validação do motorista?
+            </div>
+            
+            <div class="modal-confirm-actions">
+                <button class="btn-confirm-action btn-cancel" onclick="fecharModalConclusao()">Voltar</button>
+                <button class="btn-confirm-action btn-confirm" style="background:var(--cor-ok); box-shadow: 0 4px 10px rgba(40,167,69,0.3);" onclick="confirmarConclusaoAction()">
+                    Sim, Concluir
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-sucesso" class="modal-confirm" style="display: none;">
+        <div class="modal-confirm-box">
+            <div class="modal-confirm-title" style="color:var(--cor-ok)">
+                <i class="fas fa-check-circle" style="font-size: 3rem; margin-bottom: 10px; display: block;"></i>
+                Sucesso!
+            </div>
+            
+            <div class="modal-confirm-text" id="lbl-msg-sucesso" style="font-size: 1.1rem; color: #333; font-weight: 500;">
+                Operação realizada.
+            </div>
+            
+            <div class="modal-confirm-actions">
+                <button class="btn-confirm-action btn-confirm" style="background:var(--cor-ok); width: 100%;" onclick="fecharModalSucesso()">
+                    OK, Entendi
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-aviso" class="modal-confirm" style="display: none;">
+        <div class="modal-confirm-box">
+            <div class="modal-confirm-title" style="color:#dc3545" id="modal-aviso-titulo">
+                <i class="fas fa-exclamation-triangle"></i> Atenção
+            </div>
+            
+            <div class="modal-confirm-text" id="modal-aviso-msg" style="font-size: 1rem; color: #333;">
+                ---
+            </div>
+            
+            <div class="modal-confirm-actions">
+                <button class="btn-confirm-action btn-confirm" style="background:#dc3545; width: 100%;" onclick="fecharModalAviso()">
+                    OK, Entendi
+                </button>
+            </div>
+        </div>
+    </div>
+
+    
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../config.js"></script>
+    <script src="../js/auth_guard_app.js"></script>
+    <script src="js/manutencao.js"></script> <script>
+        // Única lógica necessária no HTML: disparar a inicialização que está no manutencao.js
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof window.inicializarManutencaoMobile === 'function') {
+                window.inicializarManutencaoMobile();
+            }
+        });
+
+        // Funções de navegação simples que precisam estar no escopo global para o 'onclick'
+        function irParaNovoChecklist() { window.location.href = 'index.html'; }
+        function abrirOficinaMobile() { window.exibirTelaOficina(); }
+        function voltarAoHub() { window.exibirTelaHub(); }
+    </script>
+</body>
+</html>

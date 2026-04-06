@@ -1,0 +1,520 @@
+<style>
+    /* ANIMAÇÃO E ESTILO DOS TANQUES (CILÍNDRICOS HORIZONTAIS) */
+    .tanker-wrapper {
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
+        gap: 5px; /* Espaço entre carretas */
+        padding: 20px 0;
+        overflow-x: auto;
+    }
+
+    /* O Corpo do Tanque (Deitado) */
+    .tanker-body {
+        width: 140px; 
+        height: 140px;
+        background: #f0f0f0; /* Cor do metal */
+        border: 4px solid #555;
+        border-radius: 20px; /* Arredondado */
+        position: relative;
+        overflow: hidden;
+        box-shadow: inset 0 0 20px rgba(0,0,0,0.2), 5px 5px 10px rgba(0,0,0,0.1);
+        display: flex;
+        flex-direction: column-reverse; /* Líquido sobe de baixo para cima */
+        padding-top: 10px; 
+        box-sizing: border-box; 
+        background: #fff;
+    }
+
+    /* Detalhe visual: Tampa/Boca de visita */
+    .tanker-body::before {
+        content: '';
+        position: absolute;
+        top: -6px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 40px;
+        height: 8px;
+        background: #444;
+        border-radius: 4px;
+        z-index: 5;
+    }
+
+    .tanker-body.empty .tank-inner-pct {
+        top: 50%;
+    }
+
+    /* O Líquido */
+    .liquid-fill {
+        width: 100%;
+        height: 0%; /* JS controla isso */
+        transition: height 1s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.5s;
+        position: relative;
+        opacity: 0.9;
+        border-top: 1px solid rgba(255,255,255,0.5);
+        align-items: center;    /* Centraliza o texto verticalmente */
+        justify-content: center;
+    }
+
+    /* Ondulação no topo do líquido */
+    .liquid-fill::after {
+        content: "";
+        position: absolute;
+        top: -10px;
+        left: 0;
+        width: 200%;
+        height: 15px;
+        background: inherit;
+        opacity: 0.5;
+        border-radius: 40%;
+        animation: wave 4s linear infinite;
+    }
+
+    /* CARD DE APROVEITAMENTO TOTAL */
+    .total-utilization-card {
+        background: #fff;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 8px 15px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
+        display: inline-block;
+        text-align: center;
+    }
+
+    @keyframes wave {
+        0% { transform: translateX(0) rotate(0deg); }
+        50% { transform: translateX(-25%) rotate(5deg); }
+        100% { transform: translateX(-50%) rotate(0deg); }
+    }
+
+    /* Cores dos Combustíveis */
+    .fuel-etanol { background-color: #aaddff; } 
+    .fuel-gasolina { background-color: #ffcc00; } 
+    .fuel-s500 { background-color: #d63333; } /* Vermelho */
+    .fuel-s10 { background-color: #ff9933; }  /* Laranja */
+    .fuel-default { background-color: #e9ecef; }
+
+    .tanker-label {
+        text-align: center;
+        margin-top: 8px;
+        font-size: 0.75rem;
+        color: #666;
+        font-weight: bold;
+    }
+    
+    .tanker-capacity {
+        font-size: 0.7rem;
+        color: #999;
+    }
+
+    .tank-inner-pct {
+        font-size: 0.9rem;
+        font-weight: bold;
+        color: rgba(0,0,0,0.6);
+        text-shadow: 0 1px 0 rgba(255,255,255,0.4);
+        position: absolute;
+        width: 100%;
+        text-align: center;
+        top: -25px; /* Fica flutuando logo acima do nível do líquido */
+        transition: top 1s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Conector entre tanques (se houver mais de 1) */
+    .connector {
+        width: 20px;
+        height: 10px;
+        background: #333;
+        margin-bottom: 40px; /* Alinha com o meio dos tanques */
+    }
+
+    /* Garante que o modal de item fique SOBRE o modal principal */
+    #modal-item-carga {
+        z-index: 9999 !important;
+    }
+    /* Garante que o modal principal tenha um index menor */
+    #modal-coleta {
+        z-index: 1000;
+    }
+
+    #toast-container {
+        z-index: 20000 !important; /* Maior que o modal de abastecimento (9999) */
+    }
+
+    @keyframes shakeError {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-5px); }
+        75% { transform: translateX(5px); }
+        }
+
+        .input-error-flash {
+            border-color: #dc3545 !important;
+            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+            animation: shakeError 0.3s ease-in-out;
+        }
+
+        /* MÁSCARA DE CARREGAMENTO (BLUR) */
+        .form-loading-mask {
+            position: absolute;
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%;
+            background: rgba(255, 255, 255, 0.6); /* Fundo branco semi-transparente */
+            backdrop-filter: blur(5px); /* O desfoque mágico */
+            z-index: 500; /* Fica acima dos inputs */
+            display: none; /* Oculto por padrão */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 8px;
+            transition: opacity 0.3s ease;
+        }
+
+        .form-loading-mask.active {
+            display: flex;
+        }
+
+        /* Garante que o form seja o container relativo para a máscara cobrir ele todo */
+        #form-coleta {
+            position: relative; 
+            min-height: 300px; /* Garante altura mínima para o loading ficar bonito */
+        }
+</style>
+
+<div class="card" style="height: 100%; display: flex; flex-direction: column; padding: 20px;">
+    
+    <div class="toolbar" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px; margin-bottom: 10px;">
+        
+        <div id="container-filtros-coletas" style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+            </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end; min-width: 150px;">
+            <button class="btn-primary" onclick="abrirModalColeta()">
+                <i class="fas fa-gas-pump icon-left"></i> Nova Coleta
+            </button>
+            <button class="btn-add-filter" onclick="adicionarFiltroColeta()" style="background: transparent; border: none; color: var(--cor-primaria); padding: 5px 0; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                <i class="fas fa-plus"></i> Adicionar Filtro
+            </button>
+        </div>
+    </div>
+
+    <div style="background: #f8f9fa; padding: 8px 12px; border: 1px solid #e9ecef; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: #666; margin-bottom: 10px;">
+        <span id="lbl-contagem-coletas">Aguardando dados...</span>
+        <span id="lbl-filtros-ativos-coleta" style="font-style: italic; font-size: 0.8rem;"></span>
+    </div>
+
+    <div style="flex: 1; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; position: relative;">
+        <table class="table table-hover">
+            <thead style="position: sticky; top: 0; background: #fff; z-index: 1;">
+                <tr>
+                    <th>Data Coleta</th>
+                    <th>Motorista</th>
+                    <th>Placa (Cavalo)</th>
+                    <th style="text-align: center;">% Carga</th>
+                    <th>Unidade</th>
+                    <th>Status</th> 
+                    <th style="width: 140px; text-align: center;">Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tbody-coletas"></tbody>
+        </table>
+        
+        <div id="loading-coletas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); display: none; justify-content: center; align-items: center; z-index: 10;">
+            <div style="text-align: center; color: var(--cor-primaria);">
+                <i class="fas fa-spinner fa-spin" style="font-size: 2rem;"></i>
+            </div>
+        </div>
+    </div>
+
+<div class="modal-overlay" id="modal-confirmar-entrega" style="z-index: 2000;">
+    <div class="modal-box" style="width: 400px;">
+        <div class="modal-header">
+            <span style="font-weight: bold; font-size: 1.1rem; color: #28a745;">
+                <i class="fas fa-check-circle"></i> Confirmar Entrega
+            </span>
+        </div>
+        <form onsubmit="salvarEntrega(event)">
+            <input type="hidden" id="entrega-id-coleta">
+            <div class="modal-body" style="padding: 20px;">
+                <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">
+                    Informe a data e horário exato da chegada/entrega na unidade.
+                </p>
+                
+                <div class="form-group mb-3">
+                    <label class="lbl-form">Data da Entrega</label>
+                    <input type="date" id="entrega-data" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="lbl-form">Horário</label>
+                    <input type="time" id="entrega-hora" class="form-control" required>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 15px; background: #f8f9fa;">
+                <button type="button" class="btn-cancel" onclick="document.getElementById('modal-confirmar-entrega').classList.remove('active')">Cancelar</button>
+                <button type="submit" class="btn-primary" style="background-color: #28a745; border-color: #28a745;">Confirmar</button>
+            </div>
+        </form>
+    </div>
+</div>
+</div>
+
+<div class="modal-overlay" id="modal-coleta">
+    <div class="modal-box" style="width: 850px;">
+        <div class="modal-header">
+            <span id="titulo-modal-coleta" style="font-size: 1.1rem; font-weight: bold; color: var(--cor-primaria);">Nova Coleta</span>
+        </div>
+        
+        <div class="modal-tabs" style="display: flex; border-bottom: 1px solid #ddd; margin-bottom: 20px; gap: 20px;">
+            <div id="tab-col-geral" onclick="alternarAbaColeta('geral')" 
+                style="padding: 10px 5px; cursor: pointer; border-bottom: 3px solid var(--cor-primaria); color: var(--cor-primaria); font-weight: bold;">
+                Dados Gerais
+            </div>
+            <div id="tab-col-tanque" onclick="alternarAbaColeta('tanque')" 
+                style="padding: 10px 5px; cursor: pointer; border-bottom: 3px solid transparent; color: #666;">
+                <i class="fas fa-flask"></i> Visualização Tanque
+            </div>
+            <div id="tab-col-obs" onclick="alternarAbaColeta('obs')" 
+                style="padding: 10px 5px; cursor: pointer; border-bottom: 3px solid transparent; color: #666;">
+                Observações
+            </div>
+        </div>
+
+        <form id="form-coleta">
+            <div id="loading-overlay-modal" class="form-loading-mask">
+                <i class="fas fa-circle-notch fa-spin" style="font-size: 3rem; color: var(--cor-primaria);"></i>
+                <span style="margin-top: 15px; color: #555; font-weight: bold;">Carregando dados...</span>
+            </div>
+            <input type="hidden" id="col-id">
+            
+            <div id="content-col-geral">
+                <div style="display: flex; gap: 15px; margin-bottom: 12px;">
+                    <div style="flex: 1;">
+                        <label class="lbl-form">Início Previsto</label>
+                        <input type="datetime-local" id="col-data-inicio" class="form-control" required>
+                    </div>
+                    <div style="flex: 1;">
+                        <label class="lbl-form">Previsão de Entrega</label>
+                        <input type="datetime-local" id="col-data-previsao" class="form-control" required>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 15px; margin-bottom: 12px;">
+                    <div style="flex: 1;">
+                        <label class="lbl-form">Unidade Atendida</label>
+                        <select id="col-unidade" class="form-control" required onchange="carregarMotoristasPorUnidade(this.value)"></select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label class="lbl-form">Motorista</label>
+                        <select id="col-motorista" class="form-control" required disabled>
+                            <option value="">Selecione a unidade primeiro...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 15px; margin-bottom: 12px;">
+                    <div style="flex: 0 0 30%;">
+                        <label class="lbl-form">Placa Cavalo</label>
+                        <select id="col-placa" class="form-control" required onchange="aoSelecionarPlacaCavalo()"></select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label class="lbl-form">Conjunto (Carretas Vinculadas)</label>
+                        <input type="text" id="col-carretas-texto" class="form-control" placeholder="Selecione o cavalo..." disabled 
+                            style="background: #f8f9fa; color: #333; font-weight: bold; border: 1px solid #dee2e6;">
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 15px; margin-bottom: 10px;">
+                    <div style="flex: 1;">
+                        <label class="lbl-form">Base Carregamento</label>
+                        <input type="text" id="col-base" class="form-control">
+                    </div>
+                    <div style="flex: 1;">
+                        <label class="lbl-form">Cidade Carregamento</label>
+                        <input type="text" id="col-cidade" class="form-control">
+                    </div>
+                    <div style="flex: 1;">
+                        <label class="lbl-form">Solicitante</label>
+                        <input type="text" id="col-solicitante" class="form-control">
+                    </div>
+                </div>
+            </div>
+
+            <div id="content-col-tanque" style="display: none;">
+                <div style="display: flex; gap: 30px; align-items: flex-start; justify-content: center; padding: 20px;">
+                    
+                    <div style="width: 350px; display: flex; flex-direction: column; gap: 15px;">
+                        
+                        <div class="form-group" style="background: #e9ecef; padding: 10px; border-radius: 6px; border: 1px solid #dee2e6;">
+                            <label class="lbl-form" style="color: #555;">Capacidade Total do Conjunto</label>
+                            <div style="display:flex; align-items:center; justify-content: space-between;">
+                                <strong id="lbl-capacidade-total-texto" style="font-size: 1.2rem; color: #333;">0 L</strong>
+                                <small class="text-muted" id="info-carretas-vinculadas" style="font-size: 0.75rem;">Selecione um cavalo...</small>
+                            </div>
+                            <input type="hidden" id="col-capacidade"> </div>
+
+                        <button type="button" class="btn-primary" onclick="abrirModalItemCarga()" style="width: 100%; justify-content: center;">
+                            <i class="fas fa-plus-circle"></i> Adicionar Combustível ao Tanque
+                        </button>
+
+                        <div style="flex: 1; border: 1px solid #eee; border-radius: 6px; background: #fff; min-height: 150px; display: flex; flex-direction: column;">
+                            <div style="padding: 8px; background: #f8f9fa; border-bottom: 1px solid #eee; font-weight: bold; font-size: 0.85rem; color: #666;">
+                                Detalhamento da Carga
+                            </div>
+                            <div id="lista-itens-carga" style="padding: 10px; overflow-y: auto; max-height: 200px; display: flex; flex-direction: column; gap: 8px;">
+                                <div style="text-align: center; color: #ccc; margin-top: 20px; font-size: 0.9rem;">
+                                    Nenhum combustível adicionado.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 2px solid #eee; padding-top: 10px;">
+                            <span style="font-weight: bold; color: #555;">Total Carregado:</span>
+                            <span id="lbl-total-carregado" style="font-size: 1.1rem; color: var(--cor-primaria); font-weight: 800;">0 L</span>
+                        </div>
+                    </div>
+
+                    <div style="flex: 1; text-align: center;">
+                        <div style="background: #fcfcfc; border: 1px dashed #ccc; border-radius: 8px; padding: 20px; min-height: 350px; display: flex; align-items: center; justify-content: center;">
+                            <div id="area-visual-tanques">
+                                <span style="color: #ccc;">Selecione um cavalo para visualizar os tanques</span>
+                            </div>
+                        </div>
+                        <div style="margin-top: 10px;">
+                            <div id="legenda-combustiveis" style="display: flex; gap: 15px; justify-content: center; font-size: 0.8rem;">
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div id="content-col-obs" style="display: none;">
+                <label class="lbl-form">Observações Gerais</label>
+                <textarea id="col-obs" class="form-control" style="height: 150px; resize: vertical;"></textarea>
+            </div>
+
+            <div class="modal-footer" style="margin-top: 20px; display: flex; justify-content: space-between;">
+                <button type="button" id="btn-confirmar-entrega" onclick="confirmarEntregaColeta()" class="btn-success" style="display:none; background-color: #28a745; color: white; border: none; padding: 8px 15px; border-radius: 4px;">
+                    <i class="fas fa-check-double"></i> Confirmar Entrega
+                </button>
+
+                <div style="display: flex; gap: 10px; margin-left: auto;">
+                    <button type="button" class="btn-cancel" onclick="fecharModalColeta()" style="background: #f1f3f5; border: 1px solid #ced4da; color: #495057;">Cancelar</button>
+                    <button type="submit" class="btn-primary" id="btn-salvar-coleta">Salvar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-item-carga" style="z-index: 1100;">
+    <div class="modal-box" style="width: 400px;">
+        <div class="modal-header">
+            <span style="font-weight: bold; font-size: 1.1rem;">Abastecer Tanque</span>
+        </div>
+        <form onsubmit="salvarItemCarga(event)">
+            <div class="modal-body" style="padding: 20px;">
+                
+                <div class="form-group mb-3">
+                    <label class="lbl-form">Selecione o Tanque (Carreta)</label>
+                    <select id="item-tanque-alvo" class="form-control" required onchange="atualizarInfoTanqueSelecionado()">
+                    </select>
+                    <small id="info-capacidade-tanque" class="text-muted" style="font-size: 0.75rem; display: block; margin-top: 2px;"></small>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label class="lbl-form">Combustível</label>
+                    <select id="item-combustivel" class="form-control" required>
+                        <option value="Diesel S-500">Diesel S-500</option>
+                        <option value="Diesel S-10">Diesel S-10</option>
+                        <option value="Gasolina">Gasolina</option>
+                        <option value="Etanol">Etanol</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="lbl-form">Volume (Litros)</label>
+                    <input type="number" id="item-volume" class="form-control" placeholder="Ex: 5000" required min="1">
+                </div>
+
+            </div>
+            <div class="modal-footer" style="padding: 15px; background: #f8f9fa;">
+                <button type="button" class="btn-cancel" onclick="document.getElementById('modal-item-carga').classList.remove('active')">Cancelar</button>
+                <button type="submit" class="btn-primary">Confirmar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-conflito-agenda" style="z-index: 11000;">
+    <div class="modal-box" style="width: 480px; border-top: 5px solid #dc3545; border-radius: 12px;">
+        <div class="modal-header" style="padding: 15px; display: flex; align-items: center; gap: 12px;">
+            <div style="background: #fff5f5; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-calendar-times" style="color: #dc3545; font-size: 1.3rem;"></i>
+            </div>
+            <span style="font-weight: 800; font-size: 1.2rem; color: #333;">Veículo Ocupado</span>
+        </div>
+        
+        <div class="modal-body" style="padding: 20px; background: #fcfcfc;">
+            <div style="background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 12px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                <div style="font-size: 0.65rem; color: #aaa; text-transform: uppercase; font-weight: bold; margin-bottom: 4px;">Identificação do Veículo</div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <strong id="conf-placa" style="font-size: 1.1rem; color: var(--cor-primaria);">---</strong>
+                    <span id="conf-veiculo-detalhe" style="font-size: 0.85rem; color: #666; font-weight: 500;">---</span>
+                </div>
+            </div>
+
+            <div style="background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 12px; margin-bottom: 15px;">
+                <div style="font-size: 0.65rem; color: #aaa; text-transform: uppercase; font-weight: bold; margin-bottom: 4px;">Motorista no Período</div>
+                <div id="conf-motorista" style="font-weight: 600; color: #444; font-size: 0.95rem;">---</div>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <div style="flex: 1; background: #fff5f5; border: 1px solid #feb2b2; border-radius: 8px; padding: 10px; text-align: center;">
+                    <div style="font-size: 0.65rem; color: #e53e3e; font-weight: 800; text-transform: uppercase;">Início</div>
+                    <div id="conf-inicio" style="font-size: 0.9rem; font-weight: bold; color: #333; margin-top: 3px;">---</div>
+                </div>
+                <div style="flex: 1; background: #f0fff4; border: 1px solid #9ae6b4; border-radius: 8px; padding: 10px; text-align: center;">
+                    <div style="font-size: 0.65rem; color: #38a169; font-weight: 800; text-transform: uppercase;">Fim Previsto</div>
+                    <div id="conf-fim" style="font-size: 0.9rem; font-weight: bold; color: #333; margin-top: 3px;">---</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-footer" style="padding: 15px; text-align: right; background: #f8f9fa; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;">
+            <button type="button" class="btn-primary" style="background: #dc3545; border: none; padding: 10px 30px; font-weight: bold;" 
+                onclick="document.getElementById('modal-conflito-agenda').classList.remove('active')">Entendido</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-confirmar-exclusao" style="z-index: 12000;">
+    <div class="modal-box" style="width: 420px; border-top: 5px solid #dc3545; border-radius: 12px;">
+        <input type="hidden" id="excluir-coleta-id">
+        
+        <div class="modal-header" style="padding: 20px; text-align: center; display: block;">
+            <div style="background: #fff5f5; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px;">
+                <i class="fas fa-trash-alt" style="color: #dc3545; font-size: 1.8rem;"></i>
+            </div>
+            <span style="font-weight: 800; font-size: 1.3rem; color: #333; display: block;">Confirmar Exclusão?</span>
+            <p style="color: #666; font-size: 0.9rem; margin-top: 8px;">Esta ação é permanente e não poderá ser desfeita.</p>
+        </div>
+        
+        <div class="modal-body" style="padding: 0 25px 20px;">
+            <div style="background: #f8f9fa; border: 1px dashed #dee2e6; border-radius: 8px; padding: 15px;">
+                <div style="font-size: 0.7rem; color: #999; text-transform: uppercase; font-weight: bold; margin-bottom: 5px;">Registro selecionado:</div>
+                <div id="excluir-detalhe-veiculo" style="font-weight: bold; color: #333; font-size: 1rem;">---</div>
+                <div id="excluir-detalhe-data" style="font-size: 0.85rem; color: #666; margin-top: 3px;">---</div>
+            </div>
+        </div>
+
+        <div class="modal-footer" style="padding: 15px 25px; display: flex; gap: 10px; background: #f8f9fa; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;">
+            <button type="button" class="btn-cancel" style="flex: 1; padding: 12px; font-weight: bold;" 
+                onclick="document.getElementById('modal-confirmar-exclusao').classList.remove('active')">Cancelar</button>
+            <button type="button" id="btn-confirmar-delete" class="btn-primary" style="flex: 1; background: #dc3545; border: none; padding: 12px; font-weight: bold;" 
+                onclick="executarExclusaoDefinitiva()">Sim, Excluir</button>
+        </div>
+    </div>
+</div>

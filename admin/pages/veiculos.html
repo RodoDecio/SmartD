@@ -1,0 +1,209 @@
+<div class="card" style="height: 100%; display: flex; flex-direction: column;">
+    
+    <div class="toolbar" style="align-items: flex-start; gap: 10px;">
+        <div class="filter-container" id="container-filtros" style="flex: 1; display: flex; flex-direction: column; gap: 10px;">
+            </div>
+        
+        <div style="display: flex; flex-direction: column; gap: 5px; align-items: flex-end;">
+            <button class="btn-new-user" onclick="abrirModalVeiculo()" title="Novo Veículo">
+                <i class="fas fa-truck"></i> Novo Veículo
+            </button>
+            <button class="btn-add-filter" onclick="adicionarLinhaFiltro()">
+                <i class="fas fa-plus"></i> Adicionar Filtro
+            </button>
+        </div>
+    </div>
+
+    <div class="stats-bar">
+        <div class="stats-count" id="lbl-contagem-veiculos">Aguardando...</div>
+        <div class="stats-filters" id="lbl-filtros-ativos" style="font-size: 12px; color: #666;">
+            <i class="fas fa-filter"></i> Nenhum filtro ativo
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <table id="tabela-veiculos">
+            <thead>
+                <tr>
+                    <th>Placa</th>
+                    <th>Marca</th>
+                    <th>Modelo</th>
+                    <th>Ano</th>
+                    <th>Tipo</th>
+                    <th>Capacidade (L)</th>
+                    <th>Unidade</th>
+                    <th>Status</th>
+                    <th style="width: 140px;">Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tbody-veiculos">
+                <tr><td colspan="9" class="text-center p-3">Carregando dados... <i class="fas fa-spinner fa-spin"></i></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-veiculo">
+    <div class="modal-box" style="width: 600px; padding: 0; overflow: hidden;">
+        <div class="modal-header" id="titulo-modal-veiculo" style="padding: 15px 20px;">Novo Veículo</div>
+
+        <div class="tabs-container" style="display: flex; border-bottom: 1px solid #ddd; background: #f8f9fa;">
+            <button type="button" class="tab-btn active" onclick="alternarAbaVeiculo('geral')" id="btn-tab-geral" style="flex:1; padding:12px; border:none; background:none; cursor:pointer; font-weight:bold; border-bottom:3px solid var(--cor-primaria); color: var(--cor-primaria);">Geral</button>
+            
+            <button type="button" class="tab-btn" onclick="tratarCliqueSegundaAba()" id="btn-tab-dinamica" style="flex:1; padding:12px; border:none; background:none; cursor:pointer; font-weight:bold; color:#888;">Tanque</button>
+            
+            <button type="button" class="tab-btn" onclick="alternarAbaVeiculo('obs')" id="btn-tab-obs" style="flex:1; padding:12px; border:none; background:none; cursor:pointer; font-weight:bold; color:#888;">Observações</button>
+        </div>
+
+        <form id="form-veiculo">
+            <div id="aba-geral" class="tab-content" style="padding: 20px;">
+                <input type="hidden" id="vec-id">
+                <div style="display: flex; gap: 15px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Placa</label>
+                        <input type="text" class="form-control" id="vec-placa" required placeholder="ABC-1234" maxlength="8" style="text-transform: uppercase;">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Ano (Fab/Mod)</label>
+                        <input type="text" class="form-control" id="vec-ano" required placeholder="2025/25" maxlength="7">
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 15px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Marca</label>
+                        <input type="text" class="form-control" id="vec-marca" required>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Modelo</label>
+                        <input type="text" class="form-control" id="vec-modelo" required>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 15px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Km Atual</label>
+                        <input type="number" class="form-control" id="vec-km" placeholder="0" min="0">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Unidade</label>
+                        <select class="form-control" id="vec-unidade" required></select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Tipo</label>
+                    <select class="form-control" id="vec-tipo" required onchange="configurarAbasPorTipo()">
+                        <option value="" selected disabled>Selecione o tipo...</option>
+                        <option value="Automóvel">Automóvel</option>
+                        <option value="Caminhão">Caminhão</option>
+                        <option value="Cavalo">Cavalo Mecânico</option>
+                        <option value="Carreta">Carreta</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="div-eixo-config" style="display: none;">
+                    <label>Configuração de Eixos</label>
+                    <select class="form-control" id="vec-eixo-select">
+                        <option value="4 x 2 - Toco">4 x 2 - Toco</option>
+                        <option value="6 x 2 - Truck">6 x 2 - Truck</option>
+                        <option value="6 x 4 - Truck Traçado">6 x 4 - Truck Traçado</option>
+                        <option value="8 x 2 - Bi-Truck">8 x 2 - Bi-Truck</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="div-eixo-qtd" style="display: none;">
+                    <label>Qtd. Eixos</label>
+                    <input type="number" class="form-control" id="vec-eixo-input">
+                </div>
+            </div>
+
+            <div id="aba-tanque" class="tab-content" style="padding: 20px; display: none;">
+                <div style="background: #eef2f7; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-weight: bold; color: #333;">Capacidade Total:</span>
+                    <span id="txt-capacidade-total" style="font-size: 1.2rem; font-weight: 800; color: var(--cor-primaria);">0 L</span>
+                </div>
+                <div id="container-compartimentos" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;"></div>
+                <button type="button" class="action-btn" onclick="adicionarLinhaCompartimento()" style="width: 100%; margin-top: 10px; border: 1px dashed #ccc; justify-content: center; height: 40px;">
+                    <i class="fas fa-plus"></i> Adicionar Compartimento
+                </button>
+            </div>
+
+            <div id="aba-carretas" class="tab-content" style="padding: 20px; display: none;">
+                <div style="margin-bottom: 15px;">
+                    <label style="font-weight: bold; color: #333; display: block; margin-bottom: 5px;">Selecione as carretas atreladas:</label>
+                </div>
+                
+                <div id="lista-carretas-selecao" style="max-height: 300px; overflow-y: auto; border: 1px solid #eee; border-radius: 6px; padding: 10px; background: #fff;">
+                    <div style="text-align: center; color: #999; padding: 20px;">
+                        <i class="fas fa-spinner fa-spin"></i> Carregando carretas...
+                    </div>
+                </div>
+            </div>
+
+            <div id="aba-obs" class="tab-content" style="padding: 20px; display: none;">
+                <div class="form-group" style="height: 100%;">
+                    <label>Observações / Histórico de Manutenção</label>
+                    <textarea class="form-control" id="vec-obs" rows="10" placeholder="Digite aqui detalhes adicionais sobre o veículo..." style="resize: none; height: 300px;"></textarea>
+                </div>
+            </div>
+
+            <div class="modal-footer" style="padding: 15px 20px;">
+                <button type="button" class="btn-cancel" onclick="fecharModalVeiculo()">Cancelar</button>
+                <button type="submit" class="btn-primary">Salvar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    /* --- ESTILO DOS CARDS DE CARRETAS --- */
+    .grid-carretas {
+        display: grid;
+        /* Cria colunas automáticas de no mínimo 150px de largura */
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); 
+        gap: 10px;
+        padding: 5px;
+    }
+
+    .card-carreta-option {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 10px;
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+        background: #fff;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        user-select: none; /* Evita selecionar o texto ao clicar */
+    }
+
+    .card-carreta-option:hover {
+        border-color: #bbb;
+        background: #f9f9f9;
+    }
+
+    /* Estado Selecionado (Igual à imagem) */
+    .card-carreta-option.selected {
+        border-color: #007bff; /* Azul padrão bootstrap ou sua var(--cor-primaria) */
+        background-color: #e7f1ff; /* Fundo azul bem claro */
+        box-shadow: 0 0 0 1px #007bff; /* Reforça a borda */
+    }
+
+    /* Texto da Placa */
+    .card-carreta-info strong {
+        display: block;
+        color: #333;
+        font-size: 0.95rem;
+        margin-bottom: 2px;
+    }
+
+    /* Texto do Modelo/Marca */
+    .card-carreta-info span {
+        display: block;
+        color: #666;
+        font-size: 0.75rem;
+        line-height: 1.1;
+    }
+</style>

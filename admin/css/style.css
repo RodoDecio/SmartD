@@ -1,0 +1,775 @@
+/* admin/css/style.css - VERSÃO CORRIGIDA */
+
+:root {
+    --cor-primaria: #003399; /* Azul Decio */
+    --cor-secundaria: #0044cc;
+    --cor-fundo: #f0f4f8; 
+    --cor-texto: #333;
+    --cor-sidebar: #ffffff;
+    --cor-hover-menu: #eef2ff;
+    --cor-submenu-bg: #fcfcfc;
+    --cor-sucesso: #28a745;
+    --cor-perigo: #dc3545;
+    --cor-aviso: #ffc107;
+    --cor-borda: #ddd;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+
+/* Layout Travado (Sem scroll na janela) */
+body { 
+    height: 100vh; width: 100vw; overflow: hidden; 
+    background-color: var(--cor-fundo); display: flex; 
+}
+
+/* User Select - Impede cursor piscando em textos */
+body, label, th, h1, h2, h3, .page-title, .card-header, .brand, .menu-parent, .badge {
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: default;
+}
+input, textarea, select { user-select: text; cursor: text; }
+.btn, button, a, .clickable, .menu-parent, .submenu-item, .action-btn { cursor: pointer; }
+
+/* --- SIDEBAR --- */
+.sidebar {
+    width: 260px; height: 100%; background-color: var(--cor-sidebar);
+    display: flex; flex-direction: column; border-right: 1px solid var(--cor-borda); z-index: 10;
+}
+
+.brand {
+    height: 60px; display: flex; align-items: center; padding: 0 20px;
+    border-bottom: 1px solid #eee; color: var(--cor-primaria);
+    font-weight: 800; font-size: 20px; gap: 10px;
+}
+
+.menu-lista { flex-grow: 1; overflow-y: auto; padding-top: 10px; }
+
+/* Menu Pai */
+.menu-parent {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 20px; color: #555;
+    font-size: 14px; font-weight: 600; border-left: 4px solid transparent;
+    transition: all 0.2s;
+}
+.menu-parent:hover { background-color: var(--cor-hover-menu); color: var(--cor-primaria); }
+.menu-parent i.icon-left { width: 25px; text-align: center; margin-right: 5px; }
+.menu-parent.open i.fa-chevron-right { transform: rotate(90deg); }
+
+/* Pai Ativo (Destaque do Grupo) */
+.menu-parent.active-group {
+    background-color: #f4f7ff; 
+    color: var(--cor-primaria);
+    border-left-color: var(--cor-primaria);
+}
+
+/* Submenu */
+.submenu {
+    max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out;
+    background-color: var(--cor-submenu-bg);
+}
+
+/* Item de Submenu */
+.submenu-item {
+    display: flex; align-items: center; 
+    padding: 10px 15px 10px 25px; /* Ajuste padding */
+    color: #666; font-size: 13px; text-decoration: none; 
+    transition: all 0.2s; border-left: 4px solid transparent;
+}
+
+/* ÍCONES DO SUBMENU */
+.submenu-item i {
+    width: 30px; /* Largura fixa para alinhar texto */
+    text-align: center; 
+    font-size: 14px; 
+    opacity: 0.7;
+}
+
+.submenu-item:hover { color: var(--cor-primaria); background-color: rgba(0,0,0,0.02); }
+
+/* --- ITEM ATIVO (CORRIGIDO PARA DAR DESTAQUE) --- */
+.submenu-item.ativo { 
+    color: var(--cor-primaria); 
+    font-weight: 700; 
+    background-color: #e1e9ff; /* Azul mais forte que o hover */
+    border-left-color: var(--cor-primaria);
+}
+.submenu-item.ativo i { opacity: 1; }
+
+.sidebar-footer { border-top: 1px solid #eee; padding: 10px 0; }
+
+/* --- CONTEÚDO PRINCIPAL --- */
+.main-content { flex-grow: 1; display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+.header { flex-shrink: 0; height: 60px; background: #fff; border-bottom: 1px solid #ddd; display: flex; align-items: center; padding: 0 20px; justify-content: space-between; }
+.page-title { font-size: 18px; font-weight: 600; color: var(--cor-primaria); }
+.btn-logout { background: none; border: none; color: var(--cor-perigo); font-weight: 600; display: flex; align-items: center; gap: 8px; font-size: 14px; }
+
+/* Área de Rolagem Única */
+.viewport { 
+    flex-grow: 1; padding: 20px; overflow: hidden; 
+    display: flex; flex-direction: column; 
+}
+
+.card { 
+    background: #fff; border-radius: 8px; padding: 20px; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
+    flex: 1; display: flex; flex-direction: column; overflow: hidden; 
+}
+
+/* --- TABELA E SCROLL --- */
+.table-wrapper {
+    flex: 1; overflow-y: auto; /* Scroll aqui */
+    border: 1px solid #eee; border-radius: 8px; margin-top: 10px;
+}
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+thead th { 
+    position: sticky; top: 0; background-color: #f8f9fa; z-index: 2; 
+    box-shadow: 0 2px 2px rgba(0,0,0,0.05); 
+    text-align: left; padding: 12px; color: #666; font-weight: 600; 
+}
+td { padding: 12px; border-bottom: 1px solid #eee; color: #333; }
+tr:hover { background-color: #f9f9f9; }
+
+/* --- BOTÕES E TOOLBAR (CORREÇÃO DE ESTILO) --- */
+.toolbar { 
+    display: flex; justify-content: space-between; align-items: center; /* Alinha verticalmente */
+    margin-bottom: 15px; flex-shrink: 0; gap: 15px; 
+}
+
+.filter-container { 
+    flex: 1; 
+    display: flex; 
+    flex-direction: column; /* As linhas de filtro ficam uma abaixo da outra */
+    gap: 8px; 
+}
+
+.filter-row { 
+    display: flex; 
+    align-items: center; /* Alinha verticalmente ao centro */
+    gap: 10px; /* Espaço entre os inputs e o botão */
+    flex-wrap: wrap; /* Permite quebrar linha apenas em telas muito pequenas */
+}
+
+/* Estilo unificado para Selects e Inputs dentro dos filtros */
+.filter-row select,
+.filter-row input { 
+    height: 36px; /* Altura fixa para alinhamento perfeito */
+    padding: 0 12px; 
+    border: 1px solid #ccc; 
+    border-radius: 4px; 
+    outline: none; 
+    font-size: 13px; 
+    background-color: #fff;
+    min-width: 150px; /* Tamanho mínimo para não ficar muito pequeno */
+    color: #333;
+}
+
+/* Foco nos inputs */
+.filter-row select:focus,
+.filter-row input:focus {
+    border-color: var(--cor-primaria);
+    box-shadow: 0 0 0 2px rgba(0, 51, 153, 0.1);
+}
+
+/* Botão de Excluir Filtro (X) */
+.btn-remove-filter { 
+    height: 36px; /* Mesma altura dos inputs */
+    width: 36px;  /* Quadrado */
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    border: 1px solid #ffcccc; /* Borda vermelha suave */
+    background-color: #fff5f5; /* Fundo vermelho bem claro */
+    color: var(--cor-perigo); 
+    border-radius: 4px; 
+    cursor: pointer; 
+    transition: all 0.2s;
+    flex-shrink: 0; /* Garante que o botão não seja esmagado */
+}
+
+.btn-remove-filter:hover { 
+    background-color: var(--cor-perigo); 
+    color: white; 
+    border-color: var(--cor-perigo);
+    box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+}
+
+/* Inputs e Selects dos filtros */
+.filter-select, .form-control { 
+    padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; 
+    outline: none; font-size: 13px; height: 38px; /* Altura fixa para alinhar */
+}
+
+/* Botão Novo Usuário/Unidade (Estilo Forte) */
+.btn-new-user { 
+    display: flex; align-items: center; gap: 8px; 
+    background-color: var(--cor-primaria); color: white; 
+    border: none; padding: 0 20px; height: 38px; /* Mesma altura dos inputs */
+    border-radius: 6px; font-weight: 600; font-size: 13px;
+    transition: 0.2s; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.btn-new-user:hover { background-color: var(--cor-secundaria); transform: translateY(-1px); }
+
+/* Botões de Filtro (Adicionar/Remover) */
+.btn-add-filter { color: var(--cor-primaria); background: none; border: none; font-weight: 600; font-size: 13px; padding: 5px 10px; }
+.btn-add-filter:hover { background-color: #eef2ff; border-radius: 4px; }
+.btn-remove-filter { color: var(--cor-perigo); background: none; border: none; height: 38px; width: 30px; display: flex; align-items: center; justify-content: center; }
+
+/* Botões de Ação na Tabela */
+.action-btn { 
+    background: none; border: none; font-size: 16px; margin-right: 8px; color: #666; 
+    padding: 4px; border-radius: 4px; transition: 0.2s;
+}
+.action-btn:hover { background-color: #eee; color: var(--cor-primaria); }
+
+/* Stats Bar */
+.stats-bar { 
+    display: flex; justify-content: space-between; align-items: center; 
+    background-color: #f8f9fa; padding: 10px 15px; border-radius: 6px; 
+    margin-bottom: 10px; font-size: 13px; color: #555; border: 1px solid #e9ecef; flex-shrink: 0; 
+}
+
+/* Badges */
+.badge { padding: 5px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+.badge-ativo { background: #e6f4ea; color: var(--cor-sucesso); }
+.badge-inativo { background: #fce8e6; color: var(--cor-perigo); }
+.badge-coord { background: #e8f0fe; color: var(--cor-primaria); }
+
+/* Footer */
+.footer-info { flex-shrink: 0; height: 40px; background-color: #002266; color: white; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; font-size: 13px; }
+.unit-selector { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 2px 8px; border-radius: 4px; }
+.unit-selector option { color: #333; }
+
+/* Modais */
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: none; justify-content: center; align-items: center; }
+.modal-overlay.active { display: flex; }
+.modal-box { background: #fff; width: 500px; border-radius: 8px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+.modal-header { font-size: 18px; font-weight: 700; margin-bottom: 20px; color: var(--cor-primaria); }
+.form-group { margin-bottom: 15px; }
+.form-group label { display: block; margin-bottom: 5px; font-size: 13px; font-weight: 600; color: #555; }
+.form-control { width: 100%; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.btn-primary { background: var(--cor-primaria); color: #fff; padding: 0 20px; height: 38px; border: none; border-radius: 6px; font-weight: 600; font-size: 13px; }
+.btn-primary:hover { background: var(--cor-secundaria); }
+.btn-cancel { background: #eee; color: #333; padding: 0 20px; height: 38px; border: none; border-radius: 6px; font-weight: 600; font-size: 13px; }
+
+/* Logs Timeline */
+.log-timeline { max-height: 400px; overflow-y: auto; padding: 10px; }
+.log-item { position: relative; padding-left: 20px; border-left: 2px solid #ddd; margin-bottom: 20px; }
+.log-item::before { content: ''; position: absolute; left: -6px; top: 0; width: 10px; height: 10px; border-radius: 50%; background: var(--cor-primaria); }
+.log-header { font-size: 12px; color: #888; margin-bottom: 4px; }
+.log-action { font-weight: bold; color: #333; font-size: 14px; }
+.log-diff { background: #f8f9fa; padding: 8px; border-radius: 4px; margin-top: 5px; font-size: 12px; font-family: monospace; color: #555; }
+
+/* Checkboxes Unidades */
+.unit-checklist-container { border: 1px solid #ced4da; border-radius: 6px; padding: 10px; background: #f8f9fa; max-height: 150px; overflow-y: auto; }
+.unit-check-item { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; font-size: 13px; color: #333; }
+
+/* Password Eye */
+.input-group-password { position: relative; display: flex; align-items: center; }
+.input-group-password input { padding-right: 35px; }
+.input-group-password i { position: absolute; right: 10px; color: #666; cursor: pointer; z-index: 5; }
+
+/* Toasts */
+#toast-container { position: fixed; top: 20px; right: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 10px; }
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 15px 20px;
+    border-radius: 8px;
+    color: #fff;
+    font-weight: 500;
+    z-index: 9999;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: slideIn 0.3s ease-out;
+    min-width: 250px;
+}
+
+.toast.success { background-color: #28a745; border-left: 5px solid #1e7e34; } /* Verde */
+.toast.warning { background-color: #ffc107; color: #333; border-left: 5px solid #d39e00; } /* Amarelo */
+.toast.info    { background-color: #17a2b8; border-left: 5px solid #117a8b; } /* Azul */
+.toast.error   { background-color: #dc3545; border-left: 5px solid #bd2130; } /* Vermelho */
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+/* --- 2. ANIMAÇÃO DE LINHA PULSANTE (Row Highlight) --- */
+@keyframes rowPulse {
+    0% { background-color: rgba(253, 126, 20, 0.05); } /* Laranja bem claro */
+    50% { background-color: rgba(253, 126, 20, 0.25); } /* Laranja mais forte */
+    100% { background-color: rgba(253, 126, 20, 0.05); }
+}
+
+.nova-movimentacao {
+    animation: rowPulse 2s infinite ease-in-out;
+    border-left: 4px solid #fd7e14 !important; /* Força borda laranja */
+    transition: background-color 0.3s;
+}
+@keyframes fadeOut { to { opacity: 0; transform: translateY(-10px); } }
+.badge-pendente { 
+    background: #e6f4ea; 
+    color: var(--cor-sucesso)
+}
+
+.badge-pendente { 
+    background-color: #fff3cd; 
+    color: #856404; 
+    border-color: #ffecb5;
+}
+
+/* EM ANÁLISE: Fundo Azul Claro / Texto Azul Escuro */
+.badge-analise { 
+    background-color: #cfe2ff; 
+    color: #084298;
+    border-color: #b6d4fe;
+}
+
+/* AGUARDANDO: Fundo Roxo Claro / Texto Roxo Escuro */
+.badge-aguardando { 
+    background-color: #e0cffc; 
+    color: #4c0bce;
+    border-color: #d2bcfa;
+}
+
+/* CONCLUÍDO: Fundo Verde Claro / Texto Verde Escuro */
+.badge-concluido { 
+    background-color: #d1e7dd; 
+    color: #0f5132;
+    border-color: #badbcc;
+}
+
+/* BLOQUEADO: Fundo Vermelho Claro / Texto Vermelho Escuro */
+.badge-bloqueado { 
+    background-color: #f8d7da; 
+    color: #842029;
+    border-color: #f5c6cb;
+}
+
+/* SLA (Mantendo o padrão discreto já existente, apenas ajustando alinhamento) */
+.sla-badge {
+    padding: 4px 8px;
+    border-radius: 6px; /* Levemente menos arredondado que o status */
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+
+.sla-ok {
+    color: #0f5132;
+    background-color: #d1e7dd;
+    border: 1px solid #badbcc;
+}
+
+.sla-late {
+    color: #842029;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+}
+
+.sla-warn {
+    color: #664d03;
+    background-color: #fff3cd;
+    border: 1px solid #ffecb5;
+}
+
+/* --- TIMELINE RICA (Estilo Histórico Completo) --- */
+.timeline-rich {
+    position: relative;
+    padding: 10px 0 10px 20px;
+    border-left: 2px solid #e9ecef; /* Linha vertical cinza */
+    margin-left: 10px;
+}
+
+.timeline-event {
+    position: relative;
+    margin-bottom: 25px;
+    padding-left: 20px;
+}
+
+/* Bolinha do evento */
+.timeline-event::before {
+    content: '';
+    position: absolute;
+    left: -26px; /* Ajuste para centralizar na linha */
+    top: 0;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    border: 3px solid var(--cor-primaria);
+    z-index: 1;
+}
+
+.timeline-date {
+    font-size: 0.85rem;
+    color: #666;
+    margin-bottom: 4px;
+    display: flex; 
+    align-items: center;
+    gap: 8px;
+}
+
+.timeline-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 8px;
+}
+
+.timeline-card {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 12px;
+    font-size: 0.9rem;
+    color: #555;
+}
+
+.timeline-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: #e2e3e5;
+    color: #383d41;
+}
+
+/* --- ÁREA DE TRATATIVA (Gerenciar) --- */
+.tratativa-box {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    transition: all 0.2s;
+}
+
+.tratativa-box.nok {
+    border-left: 5px solid #dc3545; /* Vermelho para NOK */
+    background-color: #fff5f5;
+}
+
+.tratativa-box.ok {
+    border-left: 5px solid #28a745; /* Verde para OK */
+}
+
+.tratativa-input-area {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px dashed #ccc;
+    background-color: rgba(255,255,255,0.7);
+}
+
+/* Estilo para evento de Recusa (Vermelho) */
+.timeline-event.evt-red::before { 
+    border-color: #dc3545; 
+    background-color: #fff;
+}
+
+/* Rodapé do Modal (Botão Fechar) */
+.modal-footer-simple {
+    padding: 15px 20px;
+    border-top: 1px solid #eee;
+    display: flex;
+    justify-content: flex-end;
+    background-color: #fff;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
+.btn-close-modal {
+    background-color: #e2e6ea;
+    color: #444;
+    border: 1px solid #dae0e5;
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-close-modal:hover {
+    background-color: #dbe2e8;
+    color: #222;
+}
+
+/* Alerta Minimalista de Devolução */
+.alert-mini-recusa {
+    background-color: #f8d7da;
+    color: #842029;
+    border: 1px solid #f5c6cb;
+    padding: 10px 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: bold;
+    font-size: 0.95rem;
+}
+
+/* Bloco de Motivo da Recusa dentro do Item */
+.recusa-item-box {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: #fff5f5; /* Fundo avermelhado bem suave */
+    border-left: 4px solid #dc3545; /* Linha vermelha igual Obs Motorista */
+    border-radius: 4px;
+    color: #842029;
+    font-size: 0.9rem;
+}
+
+/* --- HISTÓRICO DE CONVERSA NO ITEM --- */
+
+/* Balão: Obs Original Motorista */
+.chat-box-driver {
+    background: #f8f9fa;
+    border-left: 4px solid #666;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+    color: #444;
+}
+
+/* Balão: Solução Anterior da Manutenção (Histórico) */
+.chat-box-maint {
+    background: #e8f5e9; /* Verde bem claro */
+    border-left: 4px solid #198754; /* Verde Sucesso */
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    margin-left: 20px; /* Indentado para direita para indicar resposta */
+    font-size: 0.9rem;
+    color: #155724;
+}
+
+/* Balão: Recusa do Motorista */
+.chat-box-refusal {
+    background: #fff5f5; /* Vermelho bem claro */
+    border-left: 4px solid #dc3545; /* Vermelho Erro */
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    font-size: 0.9rem;
+    color: #842029;
+}
+
+.modal-overlay.z-top {
+    z-index: 99999 !important;
+}
+
+/* Botão de Atualizar (Refresh) - Padronizado */
+.btn-refresh {
+    background-color: #f8f9fa; /* Fundo claro */
+    color: #003366;            /* Cor primária */
+    border: 1px solid #ced4da; /* Borda sutil */
+    padding: 10px 15px;        /* Mesmo padding do botão adicionar */
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 1rem;
+    height: 42px;              /* Altura fixa igual ao input */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-refresh:hover {
+    background-color: #e2e6ea;
+    border-color: #adb5bd;
+    color: #002244;
+}
+
+/* Ajuste do Wrapper de Valor do Filtro */
+/* Isso força o input/select do filtro a não ocupar tanto espaço */
+.filter-value-wrapper {
+    flex: 0 0 250px !important; /* Largura fixa menor (ajuste conforme gosto) */
+    display: flex;
+}
+
+/* --- Botão de Evidência (Foto) --- */
+.btn-evidencia {
+    background-color: #f0f2f5;
+    color: #0056b3;
+    border: 1px solid #dce0e6;
+    border-radius: 20px; /* Redondo nas bordas */
+    padding: 5px 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-evidencia:hover {
+    background-color: #e1f0ff;
+    border-color: #b8daff;
+    color: #004494;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+/* --- Animação do Modal de Imagem --- */
+#modal-imagem-overlay {
+    transition: opacity 0.3s ease, backdrop-filter 0.3s ease;
+    opacity: 0;
+    pointer-events: none; /* Evita clique enquanto invisível */
+    background: rgba(0, 0, 0, 0.85) !important; /* Fundo mais escuro */
+}
+
+#modal-imagem-overlay.active {
+    opacity: 1;
+    pointer-events: all;
+    backdrop-filter: blur(4px); /* Desfoque suave no fundo */
+}
+
+/* Animação de Zoom na Imagem */
+#img-preview-full {
+    transform: scale(0.9);
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Efeito "bouncy" sutil */
+}
+
+#modal-imagem-overlay.active #img-preview-full {
+    transform: scale(1);
+}
+
+/* Oculta botões de ação e toolbars em modo de visualização */
+#form-checklist.modo-visualizacao .btn-action-tab,
+#form-checklist.modo-visualizacao .action-btn,
+#form-checklist.modo-visualizacao .btn-remove-filter {
+    display: none !important;
+}
+
+/* Esmaece os cards para reforçar o modo leitura */
+#form-checklist.modo-visualizacao .cat-item-row,
+#form-checklist.modo-visualizacao .item-detail-row {
+    opacity: 0.8;
+    cursor: default;
+}
+
+/* Container do Switch */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 40px !important;
+    height: 22px !important;
+}
+
+/* Esconde o checkbox original */
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+/* Trilho (Slider) */
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 34px;
+}
+
+/* Bolinha interna */
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+/* COR QUANDO ATIVADO (VERDE) */
+.switch input:checked + .slider {
+    background-color: #28a745 !important;
+}
+
+/* MOVIMENTO DA BOLINHA */
+.switch input:checked + .slider:before {
+    transform: translateX(18px);
+}
+
+/* ESTADO DESABILITADO */
+.switch input:disabled + .slider {
+    background-color: #e9ecef;
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Diminui a largura do input de mês para evitar espaço vazio no toolbar */
+#container-filtros-rel-premiacao input[type="month"] {
+    max-width: 160px !important;
+    font-size: 0.85rem;
+}
+
+/* Ajuste específico para o wrapper do valor do filtro */
+#container-filtros-rel-premiacao div[id^="wrapper-prem-"] {
+    flex: 0 1 auto !important; /* Permite que o campo encolha conforme o conteúdo */
+}
+
+/* Badge no Menu Lateral */
+.menu-badge {
+    background-color: #dc3545;
+    color: white;
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: bold;
+    box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.3);
+    margin-left: auto;
+}
+
+/* Ícone de notificação na linha da tabela */
+.row-notification {
+    color: #fd7e14;
+    font-size: 0.8rem;
+    margin-right: 5px;
+    animation: bounce 1s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+    70% { transform: scale(1.1); box-shadow: 0 0 0 5px rgba(220, 53, 69, 0); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+}
+
+/* --- CORREÇÃO DE Z-INDEX DOS MODAIS SECUNDÁRIOS --- */
+
+/* Modal Principal (Fundo) */
+#modal-checklist {
+    z-index: 1000; /* Nível Base */
+}
+
+/* Modais Secundários (Devem ficar ACIMA do Principal) */
+#modal-nova-categoria,
+#modal-novo-item, 
+#modal-exclusao-item,
+#modal-alerta {
+    z-index: 1050 !important; /* Força ficar acima do modal base */
+}
+
+/* Garante que o backdrop (fundo escuro) também obedeça a hierarquia */
+.modal.active {
+    display: flex !important; /* Garante visibilidade */
+}

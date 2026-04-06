@@ -1,0 +1,345 @@
+<div class="card" style="height: 100%; display: flex; flex-direction: column;">
+    
+    <div class="toolbar">
+        <div class="filter-container" id="container-filtros-entregas"></div>
+        
+        <div style="display: flex; gap: 10px; align-items: flex-start;">
+            <button class="btn-new-user" onclick="abrirModalRegistroEPI()" title="Nova Entrega">
+                <i class="fas fa-hard-hat"></i> Registrar Entrega
+            </button>
+            <button class="btn-add-filter" onclick="adicionarFiltroEntrega()">
+                <i class="fas fa-filter"></i> + Filtro
+            </button>
+        </div>
+    </div>
+
+    <div class="stats-bar">
+        <div class="stats-count" id="lbl-contagem-entregas">Carregando...</div>
+        <div class="stats-filters" id="lbl-filtros-epi-ativos">
+            <i class="fas fa-filter"></i> Nenhum filtro ativo
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <table id="tabela-entregas">
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Colaborador</th>
+                    <th>EPI Entregue</th>
+                    <th>C.A.</th>
+                    <th style="text-align: center;">Qtd.</th>
+                    <th>Validade</th>
+                    <th style="width: 100px;">Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tbody-entregas">
+                <tr><td colspan="6" class="text-center p-3">Carregando... <i class="fas fa-spinner fa-spin"></i></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-registro-epi" style="z-index: 1050;">
+    <div class="modal-box" style="width: 850px; height: 90vh; display: flex; flex-direction: column;">
+        <div class="modal-header" style="flex-shrink: 0; padding-bottom: 15px; border-bottom: 1px solid #eee;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <i class="fas fa-hard-hat" style="color: var(--cor-primaria); font-size: 1.2rem;"></i> 
+                <span style="font-weight: bold; font-size: 1.1rem; color: #333;">Registrar Entrega EPI</span>
+            </div>
+        </div>
+
+        <div style="flex: 1; overflow: hidden; display: flex; flex-direction: column; background-color: #fff;">
+            <div style="padding: 20px 25px 10px 25px;">
+                <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                    <div style="flex: 2;">
+                        <label class="lbl-form">Colaborador</label>
+                        <select id="sel-colaborador-entrega" class="form-control" style="height: 40px;">
+                            <option value="">Carregando...</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label class="lbl-form">Data da Entrega</label>
+                        <input type="date" id="data-entrega-input" class="form-control" style="height: 40px;">
+                    </div>
+                </div>
+                <div>
+                    <input type="text" id="obs-entrega-input" class="form-control" placeholder="Observação Geral (Opcional)" style="height: 40px;">
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 25px; border-top: 1px solid #f0f0f0; margin-top: 10px;">
+                <span style="font-weight: bold; color: #003399; font-size: 13px;">Itens Selecionados</span>
+                <button type="button" class="btn-primary" style="font-size: 12px; padding: 6px 15px; height: auto;" onclick="abrirModalCatalogo('registro')">
+                    <i class="fas fa-search"></i> Buscar no Catálogo
+                </button>
+            </div>
+
+            <div class="items-scroll-area" style="flex: 1; overflow-y: auto; padding: 0 25px 20px 25px; background-color: #fafafa; border-top: 1px dashed #eee;">
+                <div id="lista-carrinho-epi" style="display: flex; flex-direction: column; gap: 10px; padding-top: 15px;"></div>
+            </div>
+        </div>
+
+        <div class="modal-footer" style="padding: 15px 25px; background: #fff; border-top: 1px solid #eee; flex-shrink: 0;">
+            <button type="button" class="btn-cancel" onclick="fecharModalRegistroEPI()">Cancelar</button>
+            <button type="button" class="btn-primary" onclick="salvarEntregaCompleta()">Confirmar Entrega</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-editar-completo" style="z-index: 1060;">
+    <div class="modal-box" style="width: 850px; height: 90vh; display: flex; flex-direction: column;">
+        <div class="modal-header" style="flex-shrink: 0; padding-bottom: 15px; border-bottom: 1px solid #eee;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <i class="fas fa-edit" style="color: var(--cor-aviso); font-size: 1.2rem;"></i> 
+                <span id="titulo-modal-edicao" style="font-weight: bold; font-size: 1.1rem; color: #333;">Editar Entrega</span>
+            </div>
+        </div>
+
+        <div style="flex: 1; overflow: hidden; display: flex; flex-direction: column; background-color: #fff;">
+            <input type="file" id="input-anexo-epi" accept="application/pdf, image/*" style="display: none;" onchange="processarUploadAnexo(this)">
+
+            <div style="padding: 20px 25px 10px 25px;">
+                <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                    <div style="flex: 2;">
+                        <label class="lbl-form">Colaborador</label>
+                        <select id="edit-sel-colaborador" class="form-control" style="height: 40px;">
+                            <option value="">Carregando...</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label class="lbl-form">Data da Entrega</label>
+                        <input type="date" id="edit-data-input" class="form-control" style="height: 40px;">
+                    </div>
+                </div>
+                <div>
+                    <input type="text" id="edit-obs-input" class="form-control" placeholder="Observação Geral" style="height: 40px;">
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 25px; border-top: 1px solid #f0f0f0; margin-top: 10px;">
+                <span style="font-weight: bold; color: #003399; font-size: 13px;">Itens da Entrega</span>
+                <button type="button" id="btn-add-item-edicao" class="btn-primary" style="font-size: 12px; padding: 6px 15px; height: auto;" onclick="abrirModalCatalogo('edicao_adicionar')">
+                    <i class="fas fa-plus"></i> Adicionar Item
+                </button>
+            </div>
+
+            <div class="items-scroll-area" style="flex: 1; overflow-y: auto; padding: 0 25px 20px 25px; background-color: #fafafa; border-top: 1px dashed #eee;">
+                <div id="lista-itens-edicao" style="display: flex; flex-direction: column; gap: 10px; padding-top: 15px; min-height: 50px;"></div>
+            </div>
+        </div>
+
+        <div class="modal-footer" id="footer-edicao" style="padding: 15px 25px; background: #fff; border-top: 1px solid #eee; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;">
+    
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button type="button" class="btn-doc-action btn-print" onclick="imprimirTermoAtual()" title="Imprimir Termo">
+                    <i class="fas fa-print"></i> <span>Imprimir</span>
+                </button>
+                
+                <button type="button" id="btn-anexo-epi" class="btn-doc-action btn-attach" onclick="triggerUploadAnexo()" title="Vincular Documento Assinado">
+                    <i class="fas fa-paperclip"></i> <span>Anexar</span>
+                </button>
+
+                <button type="button" id="btn-ver-anexo-epi" class="btn-doc-action btn-view-doc" onclick="visualizarAnexoAtual()" style="display: none;" title="Visualizar Documento">
+                    <i class="fas fa-file-alt"></i> <span>Ver Doc.</span>
+                </button>
+            </div>
+
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button type="button" id="btn-excluir-reg" class="btn-trash-reg" onclick="solicitarExclusaoEntrega()" style="margin-right: 15px;">
+                    <i class="fas fa-trash-alt"></i> Excluir
+                </button>
+                <button type="button" class="btn-cancel" onclick="fecharModalEdicao()">Fechar</button>
+                <button type="button" id="btn-salvar-edicao" class="btn-primary" onclick="salvarEdicaoCompleta()">Salvar Alterações</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-catalogo" style="z-index: 2000;">
+    <div class="modal-box" style="width: 700px; height: 75vh; display: flex; flex-direction: column;">
+        <div class="modal-header" style="padding-bottom: 15px; border-bottom: 1px solid #eee;">
+            <span style="font-weight: bold; color: #003366; font-size: 1.1rem;">Catálogo de EPIs</span>
+        </div>
+        <div style="padding: 15px 20px; background: #f8f9fa; border-bottom: 1px solid #eee;">
+            <input type="text" id="filtro-catalogo-input" class="form-control" placeholder="Filtrar por nome ou CA..." onkeyup="filtrarCatalogoUI()" style="background: white;">
+        </div>
+        <div class="table-wrapper" style="flex: 1; margin: 0; padding: 0;">
+            <table style="width: 100%;">
+                <thead style="position: sticky; top: 0; background: #fff; z-index: 1;">
+                    <tr>
+                        <th style="padding-left: 20px;">Equipamento</th>
+                        <th>CA</th>
+                        <th>Validade (Dias)</th>
+                        <th style="width: 60px;"></th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-catalogo"></tbody>
+            </table>
+        </div>
+        <div class="modal-footer" style="justify-content: space-between; background: #fff;">
+            <small style="color: #888;">* Clique no botão (+) para selecionar.</small>
+            <button type="button" class="btn-cancel" onclick="fecharModalCatalogo()">Voltar</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-confirmacao" style="z-index: 3000;">
+    <div class="modal-box" style="width: 400px; height: auto; text-align: center; padding: 30px 25px;">
+        <div style="margin-bottom: 20px;">
+            <i class="fas fa-exclamation-triangle" style="font-size: 50px; color: #dc3545;"></i>
+        </div>
+        <h4 style="margin-bottom: 15px; color: #333; font-weight: bold; font-size: 1.2rem;">Tem certeza?</h4>
+        <p style="color: #666; font-size: 14px; margin-bottom: 30px; line-height: 1.5;">
+            Esta ação excluirá permanentemente o registro.<br>Essa ação não pode ser desfeita.
+        </p>
+        <div style="display: flex; justify-content: center; gap: 15px;">
+            <button class="btn-cancel" onclick="fecharModalConfirmacao()" style="min-width: 100px;">Cancelar</button>
+            <button class="btn-primary" onclick="confirmarExclusaoUI()" style="min-width: 100px; background-color: #dc3545; border-color: #dc3545;">
+                Sim, Excluir
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* TOAST STYLES CORRIGIDOS */
+    #toast-container { 
+        position: fixed; 
+        top: 20px; 
+        right: 20px; 
+        z-index: 99999; /* Garante que fique acima de todos os modais */
+        display: flex; 
+        flex-direction: column; 
+        gap: 10px; 
+    }
+    
+    .smart-toast {
+        background: white; min-width: 300px; padding: 15px 20px; border-radius: 8px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 12px;
+        border-left: 5px solid #ccc;
+        transform: translateX(120%);
+        transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        opacity: 0; font-family: 'Segoe UI', sans-serif;
+    }
+    
+    .smart-toast.show { transform: translateX(0); opacity: 1; }
+
+    /* CORES FORÇADAS (!important) PARA RESOLVER INCOERÊNCIA */
+    .smart-toast-success { border-left-color: #28a745 !important; }
+    .smart-toast-success i { color: #28a745 !important; font-size: 1.2rem; }
+    
+    .smart-toast-error { border-left-color: #dc3545 !important; }
+    .smart-toast-error i { color: #dc3545 !important; font-size: 1.2rem; }
+
+    /* NOVO ESTILO: WARNING (AMARELO) */
+    .smart-toast-warning { border-left-color: #ffc107 !important; }
+    .smart-toast-warning i { color: #ffc107 !important; font-size: 1.2rem; }
+    
+    .smart-toast-msg { font-size: 14px; color: #333; font-weight: 500; }
+
+    /* CSS GLOBAL E MODAIS */
+    .filter-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .filter-select { height: 36px; border: 1px solid #ccc; border-radius: 4px; padding: 0 10px; font-size: 13px; min-width: 150px; }
+    .lbl-form { font-size: 12px; font-weight: bold; color: #555; display: block; margin-bottom: 5px; }
+
+    /* CARD ITEM */
+    .cart-item-card {
+        background: white; border: 1px solid #e0e0e0; border-left: 4px solid var(--cor-primaria);
+        border-radius: 6px; padding: 12px 20px; display: flex; justify-content: space-between;
+        align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.02); margin-bottom: 8px;
+    }
+    .cart-info { flex: 1; min-width: 0; }
+    .cart-info h4 { margin: 0 0 4px 0; font-size: 14px; color: #333; font-weight: 700; }
+    .cart-info span { font-size: 12px; color: #003399; background: #f0f4ff; padding: 2px 6px; border-radius: 4px; font-weight: 500; }
+    
+    .cart-history { text-align: right; padding: 0 20px; border-right: 1px solid #eee; margin-right: 20px; min-width: 130px; }
+    .hist-label { font-size: 9px; color: #999; text-transform: uppercase; display: block; }
+    .hist-date { font-size: 12px; font-weight: bold; color: #444; }
+    
+    .cart-actions { display: flex; align-items: center; gap: 15px; }
+    .cart-qty-input { width: 50px; text-align: center; padding: 5px; border: 1px solid #ccc; border-radius: 4px; font-weight: bold; }
+    .cart-qty-area { display: flex; align-items: center; gap: 8px; }
+    .btn-sync { background:none; border:none; color: #003399; cursor: pointer; font-size: 16px; opacity:0.8;}
+    .btn-sync:hover { transform: rotate(180deg); transition: transform 0.3s; opacity:1; }
+
+    /* BOTÕES */
+    .btn-trash-item, .btn-trash { 
+        background: none; border: none; color: #dc3545; cursor: pointer; font-size: 16px; opacity: 0.7; 
+        padding: 5px; transition: all 0.2s;
+    }
+    .btn-trash-item:hover, .btn-trash:hover { opacity: 1; background-color: #fff5f5; border-radius: 4px; }
+
+    .btn-add-green { width: 32px; height: 32px; border-radius: 50%; border: 1px solid #28a745; background: white; color: #28a745; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .btn-add-green:hover { background: #28a745; color: white; }
+
+    .btn-trash-reg { background: transparent; border: none; color: #dc3545; font-weight: bold; font-size: 13px; display: flex; align-items: center; gap: 5px; cursor: pointer; opacity: 0.8; }
+    .btn-trash-reg:hover { opacity: 1; text-decoration: underline; }
+    
+    .badge-status { font-size: 10px; padding: 2px 5px; border-radius: 4px; margin-left: 5px; text-transform: uppercase; }
+    .badge-status.salvo { background: #e6f4ea; color: #1e8e3e; border: 1px solid #1e8e3e; }
+    .badge-status.novo { background: #e8f0fe; color: #1967d2; border: 1px solid #1967d2; }
+
+
+    /* --- ESTILOS DOS BOTÕES DE DOCUMENTO (IMPRIMIR/ANEXAR) --- */
+    .btn-doc-action {
+        display: inline-flex;       /* Garante que ícone e texto fiquem na mesma linha */
+        align-items: center;        /* Centraliza verticalmente */
+        justify-content: center;
+        gap: 8px;                   /* Espaço entre ícone e texto */
+        padding: 0 15px;            /* Espaçamento interno lateral */
+        height: 36px;               /* Altura fixa igual para todos */
+        border-radius: 4px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 1px solid transparent;
+        line-height: 1;             /* Remove espaçamento vertical estranho */
+        text-decoration: none;
+    }
+
+    /* Botão Imprimir (Cinza padrão) */
+    .btn-print {
+        background-color: #f8f9fa;
+        border-color: #ddd;
+        color: #333;
+    }
+    .btn-print:hover {
+        background-color: #e2e6ea;
+        border-color: #ccc;
+    }
+
+    /* Botão Anexar (Estilo Outline Cinza) */
+    .btn-attach {
+        background-color: #fff;
+        border-color: #6c757d;
+        color: #555;
+    }
+    .btn-attach:hover {
+        background-color: #6c757d;
+        color: #fff;
+    }
+
+    /* Botão Alterar (Quando já tem arquivo - Amarelo/Laranja suave) */
+    .btn-attach.has-file {
+        background-color: #fff3cd;
+        border-color: #ffc107;
+        color: #856404;
+    }
+    .btn-attach.has-file:hover {
+        background-color: #ffeeba;
+    }
+
+    /* Botão Ver Doc (Azul Info - Ciano) */
+    .btn-view-doc {
+        background-color: #17a2b8;
+        border-color: #17a2b8;
+        color: #fff;
+    }
+    .btn-view-doc:hover {
+        background-color: #138496;
+        box-shadow: 0 2px 5px rgba(23, 162, 184, 0.4);
+    }
+
+</style>

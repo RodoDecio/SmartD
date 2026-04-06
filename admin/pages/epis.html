@@ -1,0 +1,72 @@
+<div class="card" style="height: 100%; display: flex; flex-direction: column;">
+    
+    <div class="toolbar">
+        <div class="filter-container">
+            <input type="text" class="form-control" placeholder="Buscar por nome ou CA..." 
+                   onkeyup="filtrarEpis(this.value)" style="max-width: 300px;">
+        </div>
+        
+        <div style="flex:1; display:flex; justify-content:flex-end;">
+            <button class="btn-new-user" onclick="abrirModalEpi()" title="Novo EPI">
+                <i class="fas fa-hard-hat"></i> Novo EPI
+            </button>
+        </div>
+    </div>
+
+    <div class="stats-bar">
+        <div class="stats-count" id="lbl-contagem-epis">Carregando...</div>
+    </div>
+
+    <div class="table-wrapper">
+        <table id="tabela-epis">
+            <thead>
+                <tr>
+                    <th>Nome do EPI</th>
+                    <th>C.A.</th>
+                    <th>Descrição</th>
+                    <th>Validade (Ref.)</th>
+                    <th>Status</th>
+                    <th style="width: 160px;">Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tbody-epis">
+                <tr><td colspan="6" class="text-center p-3">Carregando... <i class="fas fa-spinner fa-spin"></i></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-epi">
+    <div class="modal-box" style="width: 500px;">
+        <div class="modal-header" id="titulo-modal-epi">Novo EPI</div>
+        <form id="form-epi">
+            <input type="hidden" id="epi-id">
+            
+            <div class="form-group">
+                <label>Nome do Equipamento</label>
+                <input type="text" class="form-control" id="epi-nome" required placeholder="Ex: Capacete de Segurança">
+            </div>
+
+            <div style="display: flex; gap: 15px;">
+                <div class="form-group" style="flex: 1;">
+                    <label>Nº do C.A.</label>
+                    <input type="text" class="form-control" id="epi-ca" placeholder="Ex: 12345">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>Validade Média (Dias)</label>
+                    <input type="number" class="form-control" id="epi-validade" placeholder="Ex: 365">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Descrição / Detalhes</label>
+                <textarea class="form-control" id="epi-descricao" rows="3"></textarea>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" onclick="fecharModalEpi()">Cancelar</button>
+                <button type="submit" class="btn-primary">Salvar</button>
+            </div>
+        </form>
+    </div>
+</div>

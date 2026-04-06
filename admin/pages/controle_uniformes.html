@@ -1,0 +1,321 @@
+<div class="card" style="height: 100%; display: flex; flex-direction: column;">
+    
+    <div class="toolbar">
+        <div class="filter-container" id="container-filtros-uniformes"></div>
+        <div style="display: flex; gap: 10px; align-items: flex-start;">
+            <button class="btn-new-user" onclick="abrirModalRegistroUniforme()" title="Nova Entrega">
+                <i class="fas fa-tshirt"></i> Registrar Entrega
+            </button>
+            <button class="btn-add-filter" onclick="adicionarFiltroUniforme()">
+                <i class="fas fa-filter"></i> + Filtro
+            </button>
+        </div>
+    </div>
+
+    <div class="stats-bar">
+        <div class="stats-count" id="lbl-contagem-uniformes">Carregando...</div>
+        <div class="stats-filters" id="lbl-filtros-uniformes-ativos">
+            <i class="fas fa-filter"></i> Nenhum filtro ativo
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <table id="tabela-uniformes">
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Colaborador</th>
+                    <th>Peça / Uniforme</th>
+                    <th>Gênero</th>
+                    <th>Tamanho</th>
+                    <th>Qtd</th>
+                    <th style="width: 100px;">Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tbody-uniformes">
+                <tr><td colspan="7" class="text-center p-3">Carregando... <i class="fas fa-spinner fa-spin"></i></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-registro-uniforme" style="z-index: 1050;">
+    <div class="modal-box" style="width: 850px; height: 90vh; display: flex; flex-direction: column;">
+        <div class="modal-header" style="flex-shrink: 0; padding-bottom: 15px; border-bottom: 1px solid #eee;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <i class="fas fa-tshirt" style="color: var(--cor-primaria); font-size: 1.2rem;"></i> 
+                <span style="font-weight: bold; font-size: 1.1rem; color: #333;">Registrar Entrega</span>
+            </div>
+        </div>
+
+        <div style="flex: 1; overflow: hidden; display: flex; flex-direction: column; background-color: #fff;">
+            <div style="padding: 20px 25px 10px 25px;">
+                <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                    <div style="flex: 2;">
+                        <label class="lbl-form">Colaborador</label>
+                        <select id="sel-colaborador-uniforme" class="form-control" style="height: 40px;">
+                            <option value="">Carregando...</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label class="lbl-form">Data da Entrega</label>
+                        <input type="date" id="data-uniforme-input" class="form-control" style="height: 40px;">
+                    </div>
+                </div>
+                <div>
+                    <input type="text" id="obs-uniforme-input" class="form-control" placeholder="Observação Geral (Opcional)" style="height: 40px;">
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 25px; border-top: 1px solid #f0f0f0; margin-top: 10px;">
+                <span style="font-weight: bold; color: #003399; font-size: 13px;">Itens Selecionados</span>
+                <button type="button" class="btn-primary" style="font-size: 12px; padding: 6px 15px; height: auto;" onclick="abrirModalCatalogoUniformes('registro')">
+                    <i class="fas fa-search"></i> Buscar no Catálogo
+                </button>
+            </div>
+
+            <div class="items-scroll-area" style="flex: 1; overflow-y: auto; padding: 0 25px 20px 25px; background-color: #fafafa; border-top: 1px dashed #eee;">
+                <div id="lista-carrinho-uniforme" style="display: flex; flex-direction: column; gap: 10px; padding-top: 15px;"></div>
+            </div>
+        </div>
+
+        <div class="modal-footer" style="padding: 15px 25px; background: #fff; border-top: 1px solid #eee; flex-shrink: 0;">
+            <button type="button" class="btn-cancel" onclick="fecharModalRegistroUniforme()">Cancelar</button>
+            <button type="button" class="btn-primary" onclick="salvarEntregaUniforme()">Confirmar Entrega</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-editar-uniforme" style="z-index: 1060;">
+    <div class="modal-box" style="width: 850px; height: 90vh; display: flex; flex-direction: column;">
+        
+        <div class="modal-header" style="flex-shrink: 0; padding-bottom: 15px; border-bottom: 1px solid #eee;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <i class="fas fa-edit" style="color: var(--cor-aviso); font-size: 1.2rem;"></i> 
+                <span id="titulo-modal-edicao" style="font-weight: bold; font-size: 1.1rem; color: #333;">Editar Entrega</span>
+            </div>
+        </div>
+
+        <div style="flex: 1; overflow: hidden; display: flex; flex-direction: column; background-color: #fff;">
+            
+            <input type="file" id="input-anexo-uni" accept="application/pdf, image/*" style="display: none;" onchange="processarUploadAnexoUni(this)">
+
+            <div style="padding: 20px 25px 10px 25px;">
+                <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                    <div style="flex: 2;">
+                        <label class="lbl-form">Colaborador</label>
+                        <select id="edit-sel-colaborador" class="form-control" style="height: 40px;">
+                            <option value="">Carregando...</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label class="lbl-form">Data da Entrega</label>
+                        <input type="date" id="edit-data-input" class="form-control" style="height: 40px;">
+                    </div>
+                </div>
+                <div>
+                    <input type="text" id="edit-obs-input" class="form-control" placeholder="Observação Geral" style="height: 40px;">
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 25px; border-top: 1px solid #f0f0f0; margin-top: 10px;">
+                <span style="font-weight: bold; color: #003399; font-size: 13px;">Itens da Entrega</span>
+                <button type="button" id="btn-add-item-edicao" class="btn-primary" style="font-size: 12px; padding: 6px 15px; height: auto;" onclick="abrirModalCatalogoUniformes('edicao')">
+                    <i class="fas fa-plus"></i> Adicionar Item
+                </button>
+            </div>
+
+            <div class="items-scroll-area" style="flex: 1; overflow-y: auto; padding: 0 25px 20px 25px; background-color: #fafafa; border-top: 1px dashed #eee;">
+                <div id="lista-itens-edicao-uni" style="display: flex; flex-direction: column; gap: 10px; padding-top: 15px;"></div>
+            </div>
+        </div>
+
+        <div class="modal-footer" id="footer-edicao" style="padding: 15px 25px; background: #fff; border-top: 1px solid #eee; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;">
+            
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button type="button" class="btn-doc-action btn-print" onclick="imprimirTermoUniforme()" title="Imprimir Termo">
+                    <i class="fas fa-print"></i> <span>Imprimir</span>
+                </button>
+                
+                <button type="button" id="btn-anexo-uni" class="btn-doc-action btn-attach" onclick="triggerUploadAnexoUni()" title="Vincular Documento Assinado">
+                    <i class="fas fa-paperclip"></i> <span>Anexar</span>
+                </button>
+
+                <button type="button" id="btn-ver-anexo-uni" class="btn-doc-action btn-view-doc" onclick="visualizarAnexoUni()" style="display: none;" title="Visualizar Documento">
+                    <i class="fas fa-file-alt"></i> <span>Ver Doc.</span>
+                </button>
+            </div>
+
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button type="button" id="btn-excluir-reg" class="btn-trash-reg" onclick="solicitarExclusaoUniforme()" style="margin-right: 15px;">
+                    <i class="fas fa-trash-alt"></i> Excluir
+                </button>
+                <button type="button" class="btn-cancel" onclick="fecharModalEdicaoUniforme()">Cancelar</button>
+                <button type="button" id="btn-salvar-edicao" class="btn-primary" onclick="salvarEdicaoUniforme()">Salvar Alterações</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-confirmacao-uni" style="z-index: 3000;">
+    <div class="modal-box" style="width: 400px; height: auto; text-align: center; padding: 30px 25px;">
+        <div style="margin-bottom: 20px;">
+            <i class="fas fa-exclamation-triangle" style="font-size: 50px; color: #dc3545;"></i>
+        </div>
+        <h4 style="margin-bottom: 15px; color: #333; font-weight: bold; font-size: 1.2rem;">Tem certeza?</h4>
+        <p style="color: #666; font-size: 14px; margin-bottom: 30px; line-height: 1.5;">
+            Esta ação excluirá permanentemente o registro selecionado.<br>Essa ação não pode ser desfeita.
+        </p>
+        <div style="display: flex; justify-content: center; gap: 15px;">
+            <button class="btn-cancel" onclick="fecharModalConfirmacaoUni()" style="min-width: 100px;">Cancelar</button>
+            <button class="btn-primary" onclick="confirmarExclusaoUniUI()" style="min-width: 100px; background-color: #dc3545; border-color: #dc3545;">
+                Sim, Excluir
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-catalogo-uniformes" style="z-index: 2000;">
+    <div class="modal-box" style="width: 700px; height: 75vh; display: flex; flex-direction: column;">
+        <div class="modal-header" style="padding-bottom: 15px; border-bottom: 1px solid #eee;">
+            <span style="font-weight: bold; color: #003366; font-size: 1.1rem;">Catálogo de Uniformes</span>
+        </div>
+        <div style="padding: 15px 20px; background: #f8f9fa; border-bottom: 1px solid #eee;">
+            <input type="text" id="filtro-catalogo-uni-input" class="form-control" placeholder="Filtrar por nome da peça..." onkeyup="filtrarCatalogoUniUI()" style="background: white;">
+        </div>
+        <div class="table-wrapper" style="flex: 1; margin: 0; padding: 0;">
+            <table style="width: 100%;">
+                <thead style="position: sticky; top: 0; background: #fff; z-index: 1;">
+                    <tr>
+                        <th style="padding-left: 20px;">Peça / Uniforme</th>
+                        <th style="width: 60px;"></th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-catalogo-uni"></tbody>
+            </table>
+        </div>
+        <div class="modal-footer" style="justify-content: space-between; background: #fff;">
+            <small style="color: #888;">* Clique no botão (+) para selecionar.</small>
+            <button type="button" class="btn-cancel" onclick="fecharModalCatalogoUni()">Voltar</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-tamanho-uni" style="z-index: 2500;">
+    <div class="modal-box" style="width: 320px; height: auto; padding: 25px;">
+        <h4 style="margin-top:0; color: #333; font-size: 1.1rem; margin-bottom: 5px;">Selecione o Tamanho</h4>
+        <p id="lbl-nome-item-tamanho" style="color: #666; font-size: 13px; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px;"></p>
+        <label class="lbl-form">Tamanho / Numeração</label>
+        <select id="sel-tamanho-uni" class="form-control" style="margin-bottom: 20px; height: 40px;">
+            <option value="P">P</option>
+            <option value="M" selected>M</option>
+            <option value="G">G</option>
+            <option value="GG">GG</option>
+            <option value="XG">XG</option>
+            <option disabled>--- Numeração ---</option>
+            <option value="36">36</option>
+            <option value="38">38</option>
+            <option value="40">40</option>
+            <option value="42">42</option>
+            <option value="44">44</option>
+            <option value="46">46</option>
+            <option disabled>--- Outros ---</option>
+            <option value="Único">Único</option>
+        </select>
+        <div style="display:flex; justify-content: flex-end; gap: 10px;">
+            <button class="btn-cancel" onclick="document.getElementById('modal-tamanho-uni').classList.remove('active')">Cancelar</button>
+            <button class="btn-primary" onclick="confirmarAdicaoCarrinho()">Adicionar</button>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* TOAST STYLES CORRIGIDOS */
+    #toast-container { 
+        position: fixed; 
+        top: 20px; 
+        right: 20px; 
+        z-index: 99999; /* Z-Index alto para garantir visibilidade */
+        display: flex; 
+        flex-direction: column; 
+        gap: 10px; 
+    }
+    
+    .smart-toast {
+        background: white; min-width: 300px; padding: 15px 20px; border-radius: 8px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 12px;
+        border-left: 5px solid #ccc; transform: translateX(120%);
+        transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        opacity: 0; font-family: 'Segoe UI', sans-serif;
+    }
+    .smart-toast.show { transform: translateX(0); opacity: 1; }
+    
+    /* Cores de status forçadas com !important */
+    .smart-toast-success { border-left-color: #28a745 !important; }
+    .smart-toast-success i { color: #28a745 !important; font-size: 1.2rem; }
+    
+    .smart-toast-error { border-left-color: #dc3545 !important; }
+    .smart-toast-error i { color: #dc3545 !important; font-size: 1.2rem; }
+    
+    .smart-toast-msg { font-size: 14px; color: #333; font-weight: 500; }
+
+    /* CARD STYLE */
+    .cart-item-card {
+        background: white; border: 1px solid #e0e0e0; border-left: 4px solid var(--cor-primaria);
+        border-radius: 6px; padding: 12px 20px; display: flex; justify-content: space-between;
+        align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.02); margin-bottom: 8px;
+    }
+    .cart-info { flex: 1; min-width: 0; }
+    .cart-info h4 { margin: 0 0 4px 0; font-size: 14px; color: #333; font-weight: 700; }
+    .cart-info span { font-size: 12px; color: #003399; background: #f0f4ff; padding: 2px 6px; border-radius: 4px; font-weight: 500; }
+    .cart-history { text-align: right; padding: 0 20px; border-right: 1px solid #eee; margin-right: 20px; min-width: 120px; }
+    .hist-label { font-size: 9px; color: #999; text-transform: uppercase; display: block; }
+    .hist-date { font-size: 12px; font-weight: bold; color: #444; }
+    .cart-actions { display: flex; align-items: center; gap: 15px; }
+    .cart-qty-input { width: 50px; text-align: center; padding: 5px; border: 1px solid #ccc; border-radius: 4px; font-weight: bold; }
+    
+    .btn-trash-item { background: none; border: none; color: #dc3545; cursor: pointer; font-size: 16px; opacity: 0.6; }
+    .btn-add-green { width: 32px; height: 32px; border-radius: 50%; border: 1px solid #28a745; background: white; color: #28a745; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .btn-add-green:hover { background: #28a745; color: white; }
+
+    .lbl-form { font-size: 12px; font-weight: bold; color: #555; display: block; margin-bottom: 5px; }
+
+    .btn-trash-reg { background: transparent; border: none; color: #dc3545; font-weight: bold; font-size: 13px; display: flex; align-items: center; gap: 5px; cursor: pointer; opacity: 0.8; }
+    .btn-trash-reg:hover { opacity: 1; text-decoration: underline; }
+    
+    .badge-status { font-size: 10px; padding: 2px 5px; border-radius: 4px; margin-left: 5px; text-transform: uppercase; }
+    .badge-status.salvo { background: #e6f4ea; color: #1e8e3e; border: 1px solid #1e8e3e; }
+    .badge-status.novo { background: #e8f0fe; color: #1967d2; border: 1px solid #1967d2; }
+
+
+    /* ESTILOS DOS BOTÕES DE DOCUMENTO (ADICIONAR AO STYLE) */
+    .btn-doc-action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0 15px;
+        height: 36px;
+        border-radius: 4px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 1px solid transparent;
+        line-height: 1;
+        text-decoration: none;
+    }
+
+    .btn-print { background-color: #f8f9fa; border-color: #ddd; color: #333; }
+    .btn-print:hover { background-color: #e2e6ea; border-color: #ccc; }
+
+    .btn-attach { background-color: #fff; border-color: #6c757d; color: #555; }
+    .btn-attach:hover { background-color: #6c757d; color: #fff; }
+
+    .btn-attach.has-file { background-color: #fff3cd; border-color: #ffc107; color: #856404; }
+    .btn-attach.has-file:hover { background-color: #ffeeba; }
+
+    .btn-view-doc { background-color: #17a2b8; border-color: #17a2b8; color: #fff; }
+    .btn-view-doc:hover { background-color: #138496; box-shadow: 0 2px 5px rgba(23, 162, 184, 0.4); }
+
+</style>

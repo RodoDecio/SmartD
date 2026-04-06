@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart D - Gestão</title>
+
+
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+
+    <link rel="stylesheet" href="css/style.css"> <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#003399">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+
+    <style>
+        /* ==========================================================================
+        1. ESTRUTURA GERAL (FLEXBOX)
+        ========================================================================== */
+        body {
+            display: flex;
+            min-height: 100vh;
+            margin: 0;
+            overflow-x: hidden;
+            background-color: #f4f6f9;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        /* ==========================================================================
+        2. SIDEBAR (ESTADO NORMAL / ABERTO)
+        ========================================================================== */
+        .sidebar {
+            width: 260px;
+            background-color: #003366 !important;
+            color: #ffffff !important;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            white-space: nowrap;
+            overflow: visible; /* Importante para o Hint aparecer fora */
+            position: relative;
+            z-index: 1000;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        }
+
+        /* Área da Logo */
+        .brand {
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between; /* Logo na esq, botão na dir */
+            padding: 0 15px;
+            background-color: #ffffff;
+            border-bottom: 3px solid #004d99;
+            position: relative;
+        }
+
+        /* Controle das Imagens da Logo */
+        .logo-full { display: block; height: 50px; transition: opacity 0.2s; }
+        .logo-icon { display: none; height: 45px; transition: opacity 0.2s; }
+
+        /* Botão Hambúrguer */
+        .btn-toggle-sidebar {
+            background: none;
+            border: none;
+            color: #003366;
+            font-size: 1.4rem;
+            cursor: pointer;
+            padding: 5px;
+            z-index: 1002;
+        }
+
+        /* Menu Lista */
+        .menu-lista {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-top: 10px;
+        }
+
+        /* Itens de Menu */
+        .menu-parent, .submenu-item {
+            color: rgba(255, 255, 255, 0.85) !important;
+            background-color: transparent !important;
+            text-decoration: none !important;
+            padding: 12px 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+            position: relative; /* Base para o tooltip */
+        }
+
+        .menu-parent:hover, .submenu-item:hover {
+            background-color: transparent !important;
+            color: #fff !important;
+        }
+
+        /* Ícones */
+        .icon-left {
+            width: 30px;
+            text-align: center;
+            margin-right: 10px;
+            font-size: 1.1rem;
+            flex-shrink: 0; /* Garante que o ícone não amasse */
+        }
+
+        .fa-chevron-right {
+            margin-left: auto;
+            font-size: 0.8rem;
+            transition: transform 0.2s;
+        }
+        .menu-parent.open .fa-chevron-right { transform: rotate(90deg); }
+
+      /*////////////////////////////////////////////////////////////////////////////////////*/
+      /* ==========================================================================
+           CORREÇÃO FINAL: REMOÇÃO DE FUNDOS BRANCOS (FORCE TRANSPARENT)
+           ========================================================================== */
+        
+        /* 1. Remove fundo do item PAI quando aberto ou ativo */
+        .menu-parent, 
+        .menu-parent.open, 
+        .menu-parent.active-group,
+        .menu-parent:focus,
+        .menu-parent:hover {
+            background-color: transparent !important; /* Sem fundo branco */
+            color: rgba(255, 255, 255, 0.85) !important; /* Texto branco padrão */
+        }
+
+        /* 2. Remove fundo do SUBMENU (Container) se estiver ficando branco */
+        .submenu {
+            background-color: #00254a !important; /* Mantém o azul escuro original */
+        }
+
+        /* 3. Remove fundo do ITEM DE MENU (Filho) quando ativo/selecionado */
+        .submenu-item,
+        .submenu-item.ativo,
+        .menu-ativo {
+            background-color: transparent !important; /* Remove a faixa branca */
+            box-shadow: none !important;
+        }
+
+        /* 4. Define o visual do item ATIVO (Apenas a barra azul lateral) */
+        .menu-ativo {
+            border-left: 4px solid #00d2ff !important;
+            border-right: none !important;
+            color: #ffffff !important; /* Texto branco brilhante */
+            font-weight: bold;
+        }
+
+        /* 5. Garante que o hover do filho também não tenha fundo */
+        .submenu-item:hover {
+            background-color: transparent !important;
+            
+        }
+        /*////////////////////////////////////////////////////////////////////////////////////*/  
+
+        .submenu {
+            background-color: #00254a;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .submenu-item { padding-left: 55px; font-size: 0.9rem; }
+
+        .menu-ativo {
+            background-color: rgba(0, 210, 255, 0.05) !important; /* Fundo quase transparente */
+            border-left: 4px solid #00d2ff !important; /* A barra vertical azul clara */
+            border-right: none; /* Remove borda direita se houver */
+            color: #dde3e9 !important;
+            font-weight: bold;
+            box-shadow: none; /* Remove sombra interna antiga */
+        }
+
+        /* ==========================================================================
+        3. ESTADO CONTRAÍDO (SIDEBAR FECHADA)
+        ========================================================================== */
+        body.sidebar-closed .sidebar { width: 80px; }
+        body.sidebar-closed .main-content { width: calc(100% - 80px); }
+
+        /* --- CORREÇÃO DOS ÍCONES SUMINDO --- */
+        /* Esconde o TEXTO setando tamanho da fonte para 0 */
+        body.sidebar-closed .menu-parent div, 
+        body.sidebar-closed .submenu-item {
+            font-size: 0 !important;
+        }
+
+        /* Força o ÍCONE a ter tamanho normal e margem zero */
+        body.sidebar-closed .icon-left {
+            font-size: 1.3rem !important; /* Ícone visível e maior */
+            margin-right: 0 !important;
+            display: inline-block !important;
+        }
+
+        /* Centraliza os itens do menu */
+        body.sidebar-closed .menu-parent, 
+        body.sidebar-closed .submenu-item {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            justify-content: center !important;
+        }
+
+        /* Esconde setas e submenus abertos */
+        body.sidebar-closed .fa-chevron-right,
+        body.sidebar-closed .submenu {
+            display: none !important;
+        }
+
+        /* --- TROCA DE LOGO --- */
+        body.sidebar-closed .logo-full { display: none; }
+        body.sidebar-closed .logo-icon { display: block; margin: 0 auto; }
+        
+        body.sidebar-closed .brand {
+            flex-direction: column;
+            justify-content: center;
+            gap: 5px;
+            padding: 10px 0;
+        }
+        
+        /* Botão Hambúrguer no modo fechado */
+        body.sidebar-closed .btn-toggle-sidebar {
+            font-size: 1rem;
+            margin-top: 5px;
+        }
+
+        /* --- HINT (TOOLTIP) --- */
+        /* Aparece o nome do menu ao passar o mouse quando fechado */
+        body.sidebar-closed .menu-parent:hover::after,
+        body.sidebar-closed .submenu-item:hover::after {
+            content: attr(data-tooltip); /* Pega o nome do atributo HTML */
+            position: absolute;
+            left: 70px;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: transparent !important;
+            color: #fff;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            z-index: 9999;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+            pointer-events: none;
+            opacity: 0;
+            animation: fadeInTooltip 0.2s forwards 0.1s; /* Delay leve */
+        }
+
+        @keyframes fadeInTooltip { to { opacity: 1; left: 85px; } }
+
+        /* ==========================================================================
+        4. CONTEÚDO PRINCIPAL (MANTIDO)
+        ========================================================================== */
+        .main-content {
+            flex-grow: 1;
+            width: calc(100% - 260px);
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .viewport { flex: 1; overflow-y: auto; padding: 20px; }
+        .header { height: 60px; background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; flex-shrink: 0; }
+        .footer-info {
+            background: #003366;
+            padding: 10px 20px;
+            font-size: 0.8rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+            width: 100%; /* Força largura total */
+            box-sizing: border-box; /* Impede que o padding estoure a tela */
+            border-top: 1px solid #dee2e6; /* Detalhe visual opcional */
+        }
+
+        /* ESTILOS DE OUTROS COMPONENTES (COPIADOS DO ORIGINAL) */
+        .dash-card { background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); padding: 25px; display: flex; flex-direction: column; border-top: 5px solid #ccc; position: relative; overflow: hidden; transition: transform 0.2s; }
+        .dash-card:hover { transform: translateY(-5px); }
+        .card-colab { border-top-color: #007bff; } .card-veic { border-top-color: #28a745; } .card-unit { border-top-color: #fd7e14; }
+        .dash-icon-bg { position: absolute; right: -10px; bottom: -10px; font-size: 100px; opacity: 0.05; transform: rotate(-15deg); }
+        .dash-title { font-size: 1.1rem; color: #666; font-weight: 600; text-transform: uppercase; display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
+        .dash-main-number { font-size: 3.5rem; font-weight: 800; color: #333; line-height: 1; margin-bottom: 10px; }
+        .dash-detail { margin-top: auto; background: #f8f9fa; padding: 15px; border-radius: 6px; border-left: 3px solid #ddd; }
+        .progress-container { height: 6px; background: #e9ecef; border-radius: 3px; margin-top: 8px; overflow: hidden; }
+        .progress-bar { height: 100%; width: 0%; transition: width 1s ease-in-out; }
+        .state-list { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.9rem; }
+        .state-item { display: flex; justify-content: space-between; padding: 4px 8px; background: #fff; border: 1px solid #eee; border-radius: 4px; }
+        .btn-icon-search { background-color: var(--cor-primaria); color: white; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: transform 0.2s, background-color 0.2s; }
+        .btn-icon-search:hover { transform: scale(1.1); background-color: var(--cor-secundaria); }
+        .epi-card { background: white; border-left: 4px solid var(--cor-primaria); border-radius: 4px; padding: 10px 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; animation: fadeIn 0.3s; margin-bottom: 8px; border: 1px solid #eee; }
+        .epi-card-info h4 { margin: 0 0 5px 0; font-size: 0.95rem; color: #333; font-weight: bold; }
+        .epi-card-details { font-size: 0.8rem; color: #666; display: flex; flex-wrap: wrap; gap: 15px; }
+        .epi-vencimento { color: #dc3545; font-weight: bold; font-size: 0.8rem; margin-top: 4px; }
+        .epi-card-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+        .input-qtd { width: 60px; text-align: center; border: 1px solid #ddd; border-radius: 4px; padding: 2px; font-size: 0.9rem; }
+        .btn-trash { color: #dc3545; background: none; border: none; cursor: pointer; font-size: 0.9rem; opacity: 0.7; }
+        .btn-trash:hover { opacity: 1; text-decoration: underline; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1500; display: none; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+        .modal-overlay.active { display: flex; animation: fadeIn 0.2s; }
+        .modal-box { background: white; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; max-width: 90%; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    
+        /* ==========================================================================
+        CORREÇÃO: DASHBOARD GRID (LADO A LADO)
+        ========================================================================== */
+        .dashboard-grid {
+            display: grid;
+            /* Ajustei para 300px para caber melhor lado a lado em telas médias */
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
+            gap: 20px;
+            padding: 10px;
+            width: 100%; /* Garante uso total da área */
+            box-sizing: border-box;
+            align-content: start;
+        }
+    
+    
+    
+    </style>
+    </head>
+    <body>
+
+    <div id="toast-container"></div>
+
+    <aside class="sidebar">
+        <div class="brand">
+            <div onclick="carregarVisaoGeral()" style="cursor: pointer; display: flex; align-items: center; justify-content: center; width: 100%;">
+                <img src="icons/Logo-TRR.png" class="logo-full" alt="Smart D"
+                    onerror="this.style.display='none'">
+                
+                <img src="icons/icon-512x512.png" class="logo-icon" alt="D"
+                    onerror="this.src='icons/Logo-TRR.png'"> 
+            </div>
+
+            <button class="btn-toggle-sidebar" onclick="toggleSidebarState()" title="Menu">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+
+        <nav class="menu-lista">
+            
+            <div class="menu-parent" onclick="toggleMenu('menu-acoes')" data-tooltip="Ações">
+                <div><i class="fas fa-bolt icon-left"></i> Ações</div>
+                <i class="fas fa-chevron-right"></i>
+            </div>
+            <div id="menu-acoes" class="submenu">
+                <a id="btn-AcoesChecklist" class="submenu-item" onclick="carregarModulo('Acoes_Checklist'); marcarMenuAtivo(this)" data-tooltip="Central de Checklists">
+                    <i class="fas fa-tasks icon-left" style="font-size: 0.9rem; width: 20px; margin-right: 5px;"></i> Central de Checklists
+                </a>
+                <a id="btn-LancamentosDiarias" class="submenu-item" onclick="carregarModulo('Lancamentos_Diarias'); marcarMenuAtivo(this)" data-tooltip="Lançamento de Diárias">
+                    <i class="fas fa-calendar-check icon-left" style="font-size: 0.9rem; width: 20px; margin-right: 5px;"></i> Lançamento de Diárias
+                </a>
+                <a id="btn-LancamentoPremiacao" class="submenu-item" onclick="carregarModulo('Lancamento_Premiacao'); marcarMenuAtivo(this)" data-tooltip="Apuração de Premiação">
+                    <i class="fas fa-trophy icon-left" style="font-size: 0.9rem; width: 20px; margin-right: 5px;"></i> Apuração de Premiação
+                </a>
+                <a id="btn-ControleEpi" class="submenu-item" onclick="carregarModulo('Controle_Epi'); marcarMenuAtivo(this)" data-tooltip="Controle de EPIs">
+                    <i class="fas fa-hard-hat icon-left" style="font-size: 0.9rem; width: 20px; margin-right: 5px;"></i> Controle de EPIs
+                </a>
+                <a id="btn-UniformesC" class="submenu-item" onclick="carregarModulo('Controle_Uniformes'); marcarMenuAtivo(this)" data-tooltip="Controle de Uniformes">
+                    <i class="fas fa-tshirt icon-left" style="font-size: 0.9rem; width: 20px; margin-right: 5px;"></i> Controle de Uniformes
+                </a>
+                <a id="btn-Chamados" class="submenu-item" onclick="carregarModulo('Chamados'); marcarMenuAtivo(this)" data-tooltip="Chamados Externos">
+                    <i class="fas fa-headset icon-left" style="font-size: 0.9rem; width: 20px; margin-right: 5px;"></i> Chamados
+                </a>
+                <a id="btn-Ferias" class="submenu-item" onclick="carregarModulo('Ferias'); marcarMenuAtivo(this)" data-tooltip="Solicitar Férias">
+                    <i class="fas fa-umbrella-beach icon-left" style="font-size: 0.9rem; width: 20px; margin-right: 5px;"></i> Solicitação de Férias
+                </a>
+                <a id="btn-Coletas" class="submenu-item" onclick="carregarModulo('Coletas'); marcarMenuAtivo(this)" data-tooltip="Coletas Combustível">
+                    <i class="fas fa-gas-pump icon-left" style="font-size: 0.9rem; width: 20px; margin-right: 5px;"></i> Coletas Combustível
+                </a>
+            </div>
+
+            <div class="menu-parent" onclick="toggleMenu('menu-relatorios')" data-tooltip="Relatórios">
+                <div><i class="fas fa-chart-bar icon-left"></i> Relatórios</div>
+                <i class="fas fa-chevron-right"></i>
+            </div>
+            <div id="menu-relatorios" class="submenu"> 
+                <a id="btn-Relatorios_Checklist" class="submenu-item" onclick="carregarModulo('Relatorios_Checklist'); marcarMenuAtivo(this)" data-tooltip="Relatório Checklist">
+                    <i class="fas fa-file-contract icon-left" style="font-size: 0.9rem; width: 20px; margin-right: 5px;"></i> Checklist
+                </a>
+                <a id="btn-Relatorios_Diaria" class="submenu-item" onclick="carregarModulo('Relatorios_Diaria'); marcarMenuAtivo(this)" data-tooltip="Relatório Diárias">
+                    <i class="fas fa-hand-holding-usd icon-left" style="font-size: 0.9rem; width: 20px; margin-right: 5px;"></i> Diárias
+                </a>
+                <a id="btn-Relatorios_Premiacao" class="submenu-item" onclick="carregarModulo('Relatorios_Premiacao'); marcarMenuAtivo(this)" data-tooltip="Relatório Premiação">
+                    <i class="fas fa-trophy icon-left" style="font-size: 0.9rem; width: 20px; margin-right: 5px;"></i> Premiação
+                </a>
+                <a id="btn-Relatorios_Coletas" class="submenu-item" onclick="carregarModulo('Relatorios_Coletas'); marcarMenuAtivo(this)" data-tooltip="Relatório de Coletas">
+                    <i class="fas fa-gas-pump icon-left" style="font-size: 0.9rem; width: 20px; margin-right: 5px;"></i> Coletas (Combustível)
+                </a>
+                <a id="btn-Relatorios_Ferias" class="submenu-item" onclick="carregarModulo('Relatorios_Ferias'); marcarMenuAtivo(this)" data-tooltip="Relatório Férias">
+                    <i class="fas fa-umbrella-beach icon-left" style="font-size: 0.9rem; width: 20px; margin-right: 5px;"></i> Férias
+                </a>
+                <a id="btn-Relatorios_Usuarios" class="submenu-item" onclick="carregarModulo('Relatorios_Usuarios'); marcarMenuAtivo(this)" data-tooltip="Relatório Usuários">
+                    <i class="fas fa-users icon-left" style="font-size: 0.9rem; width: 20px; margin-right: 5px;"></i> Usuários
+                </a>
+                <a id="btn-Relatorios_Veiculos" class="submenu-item" onclick="carregarModulo('Relatorios_Veiculos'); marcarMenuAtivo(this)" data-tooltip="Relatório Veículos">
+                    <i class="fas fa-truck icon-left" style="font-size: 0.9rem; width: 20px; margin-right: 5px;"></i> Veículos
+                </a>
+            </div>
+
+            <div id="parent-cadastros" class="menu-parent" onclick="toggleMenu('menu-cadastros')" data-tooltip="Cadastros">
+                <div><i class="fas fa-database icon-left"></i> Cadastros</div>
+                <i class="fas fa-chevron-right"></i>
+            </div>
+            <div id="menu-cadastros" class="submenu">
+                <a id="btn-Usuarios" class="submenu-item" onclick="carregarModulo('Usuarios'); marcarMenuAtivo(this)" data-tooltip="Usuários">
+                    <i class="fas fa-users icon-left" style="font-size: 0.9rem; width: 20px; margin-right: 5px;"></i> Usuários
+                </a>
+                <a id="btn-Unidades" class="submenu-item" onclick="carregarModulo('Unidades'); marcarMenuAtivo(this)" data-tooltip="Unidades">
+                    <i class="fas fa-building icon-left" style="font-size: 0.9rem; width: 20px; margin-right: 5px;"></i> Unidades
+                </a>
+                <a id="btn-Veiculos" class="submenu-item" onclick="carregarModulo('Veiculos'); marcarMenuAtivo(this)" data-tooltip="Veículos">
+                    <i class="fas fa-truck-moving icon-left" style="font-size: 0.9rem; width: 20px; margin-right: 5px;"></i> Veículos
+                </a>
+                <a id="btn-Checklists" class="submenu-item" onclick="carregarModulo('Checklists'); marcarMenuAtivo(this)" data-tooltip="Modelos Checklist">
+                    <i class="fas fa-clipboard-list icon-left" style="font-size: 0.9rem; width: 20px; margin-right: 5px;"></i> Modelos de Checklist
+                </a>
+                <a id="btn-Epis" class="submenu-item" onclick="carregarModulo('Epis'); marcarMenuAtivo(this)" data-tooltip="Cadastro EPIs">
+                    <i class="fas fa-hard-hat icon-left" style="font-size: 0.9rem; width: 20px; margin-right: 5px;"></i> Cadastro de EPIs
+                </a>
+                <a id="btn-Uniformes" class="submenu-item" onclick="carregarModulo('Uniformes'); marcarMenuAtivo(this)" data-tooltip="Cadastro Uniformes">
+                    <i class="fas fa-tshirt icon-left" style="font-size: 0.9rem; width: 20px; margin-right: 5px;"></i> Cadastro Uniformes
+                </a>
+                <a id="btn-Diarias" class="submenu-item" onclick="carregarModulo('Diarias'); marcarMenuAtivo(this)" data-tooltip="Valores Diárias">
+                    <i class="fas fa-dollar-sign icon-left" style="font-size: 0.9rem; width: 20px; margin-right: 5px;"></i> Valores de Diárias
+                </a>
+                <a id="btn-Premiacoes" class="submenu-item" onclick="carregarModulo('Premiacoes'); marcarMenuAtivo(this)" data-tooltip="Política Premiações">
+                    <i class="fas fa-trophy icon-left" style="font-size: 0.9rem; width: 20px; margin-right: 5px;"></i> Política de Premiações
+                </a>
+            </div>
+
+<!--
+
+            <div class="menu-parent" onclick="toggleMenu('menu-manutencao')" data-tooltip="Manutenção da Frota">
+                <div><i class="fas fa-tools icon-left"></i> Manutenção</div>
+                <i class="fas fa-chevron-right"></i>
+            </div>
+            <div id="menu-manutencao" class="submenu">
+                <a id="btn-Manutencao" class="submenu-item" onclick="carregarModulo('Manutencao'); marcarMenuAtivo(this)">
+                    <i class="fas fa-wrench icon-left" style="font-size: 0.9rem; width: 20px; margin-right: 5px;"></i> Gestão de Manutenção
+                </a>
+                <a id="btn-Fornecedores" class="submenu-item" onclick="carregarModulo('Fornecedores'); marcarMenuAtivo(this)">
+                    <i class="fas fa-store icon-left" style="font-size: 0.9rem; width: 20px; margin-right: 5px;"></i> Fornecedores
+                </a>
+                <a id="btn-Catalogo" class="submenu-item" onclick="carregarModulo('Catalogo'); marcarMenuAtivo(this)">
+                    <i class="fas fa-tags icon-left" style="font-size: 0.9rem; width: 20px; margin-right: 5px;"></i> Catálogo de Itens
+                </a>
+                
+                <div class="submenu-item" onclick="window.toggleNestedMenu('menu-pneus-nested', event)" style="justify-content: space-between; padding-right: 20px; margin-top: 5px; padding-top: 15px;">
+                    <div style="display: flex; align-items: center;">
+                        <i class="fas fa-compact-disc icon-left" style="font-size: 0.9rem; width: 20px; margin-right: 5px;"></i> Pneus da Frota
+                    </div>
+                    <i class="fas fa-chevron-right nested-chevron" id="chevron-pneus" style="font-size: 0.8rem; transition: transform 0.2s;"></i>
+                </div>
+                
+                <div id="menu-pneus-nested" style="display: none;">
+                    <a id="btn-Pneus_Estoque" class="submenu-item" style="padding-left: 75px; font-size: 0.85rem;" onclick="carregarModulo('Pneus_Estoque'); marcarMenuAtivo(this)" data-tooltip="Estoque e Cadastro">
+                        <i class="fas fa-boxes icon-left" style="font-size: 0.85rem; width: 15px; margin-right: 5px;"></i> Estoque e Inventário
+                    </a>
+                    <a id="btn-Pneus_Aplicacao" class="submenu-item" style="padding-left: 75px; font-size: 0.85rem;" onclick="carregarModulo('Pneus_Aplicacao'); marcarMenuAtivo(this)" data-tooltip="Mapa Drag & Drop">
+                        <i class="fas fa-truck icon-left" style="font-size: 0.85rem; width: 15px; margin-right: 5px;"></i> Mapa de Aplicação
+                    </a>
+                    <a id="btn-Pneus_Servicos" class="submenu-item" style="padding-left: 75px; font-size: 0.85rem;" onclick="carregarModulo('Pneus_Servicos'); marcarMenuAtivo(this)" data-tooltip="Rodízio e Instalação">
+                        <i class="fas fa-tools icon-left" style="font-size: 0.85rem; width: 15px; margin-right: 5px;"></i> Serviços e Rodízio
+                    </a>
+                    <a id="btn-Pneus_Recapagem" class="submenu-item" style="padding-left: 75px; font-size: 0.85rem;" onclick="carregarModulo('Pneus_Recapagem'); marcarMenuAtivo(this)" data-tooltip="Envio para Recapadora">
+                        <i class="fas fa-sync-alt icon-left" style="font-size: 0.85rem; width: 15px; margin-right: 5px;"></i> Recapagem e Descarte
+                    </a>
+                </div>
+            </div>
+
+-->
+
+        </nav>
+
+        <div class="sidebar-footer" style="padding: 15px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.05); min-height: 55px;">
+            <div id="container-switch-mobile" style="flex: 1;"></div>
+            
+            <div style="display: flex; gap: 15px; margin-left: auto; padding-right: 10px;">
+                <button class="btn-sidebar-tool" onclick="carregarModulo('Calculadora')" title="Calculadora" style="background: transparent; border: none; color: rgba(255,255,255,0.6); cursor: pointer; font-size: 1.2rem; transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.6)'">
+                    <i class="fas fa-calculator"></i>
+                </button>
+                <button class="btn-sidebar-tool" onclick="carregarModulo('Sobre')" title="Sobre o Sistema" style="background: transparent; border: none; color: rgba(255,255,255,0.6); cursor: pointer; font-size: 1.2rem; transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.6)'">
+                    <i class="fas fa-info-circle"></i>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="header">
+            <div class="page-title" id="titulo-pagina" onclick="carregarVisaoGeral()" style="cursor: pointer;">
+                Visão Geral
+            </div>
+            <button class="btn-logout" onclick="logout()">
+                <i class="fas fa-door-open"></i> Sair
+            </button>
+        </header>
+
+        <div class="viewport" id="area-conteudo">
+            <div style="padding: 20px; text-align: center; color: #666;">
+                <i class="fas fa-circle-notch fa-spin"></i> Carregando Dashboard...
+            </div>
+        </div>
+
+        <footer class="footer-info">
+            <div class="user-details">
+                <span><i class="fas fa-user"></i> <b id="lbl-usuario">...</b></span>
+                <span style="margin-left:15px"><i class="fas fa-id-badge"></i> <span id="lbl-perfil">...</span></span>
+            </div>
+            <div>
+                Unidade: <select class="unit-selector" id="sel-unidade"></select>
+            </div>
+        </footer>
+    </main>
+
+    <div class="modal-overlay" id="modal-usuario">
+        <div class="modal-box">
+            <div class="modal-header" id="modal-titulo">Novo Usuário</div>
+            <form id="form-usuario">
+                <input type="hidden" id="usr-id">
+                <div class="form-group">
+                    <label>Nome Completo</label>
+                    <input type="text" class="form-control" id="usr-nome" required>
+                </div>
+                <div style="display: flex; gap: 15px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Login</label>
+                        <input type="text" class="form-control" id="usr-login" required>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Senha</label>
+                        <input type="password" class="form-control" id="usr-senha">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Perfil</label>
+                    <select class="form-control" id="usr-perfil" required>
+                        <option value="motorista">Motorista</option>
+                        <option value="manutentor">Manutentor</option>
+                        <option value="analista">Analista</option>
+                        <option value="coordenador">Coordenador</option>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-cancel" onclick="fecharModalCheck()">Cancelar</button>
+                    <button type="submit" class="btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-unidade">
+        <div class="modal-box">
+            <div class="modal-header">Nova Unidade</div>
+            <form id="form-unidade">
+                <input type="hidden" id="unit-id">
+                <div class="form-group"><label>Nome</label><input type="text" id="unit-nome" class="form-control" required></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-cancel" onclick="fecharModalUnidade()">Cancelar</button>
+                    <button type="submit" class="btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-logs">
+        <div class="modal-box" style="width: 600px; max-height:80vh; display:flex; flex-direction:column;"> 
+            <div class="modal-header" id="titulo-modal-logs" style="flex-shrink:0;">Histórico</div>
+            <div class="log-timeline" id="timeline-logs" style="flex:1; overflow-y:auto; padding:10px;"></div>
+            <div class="modal-footer" style="flex-shrink:0;">
+                <button type="button" class="btn-cancel" onclick="fecharModalLogs()">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-confirmacao" style="z-index: 2000;">
+        <div class="modal-box" style="width: 400px;">
+            <div class="modal-header" style="color: var(--cor-aviso)">
+                <i class="fas fa-exclamation-triangle"></i> Atenção
+            </div>
+            <p style="margin: 20px 0; font-size: 14px; color: #555;">Existem alterações não salvas. Descartar?</p>
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" onclick="fecharConfirmacaoGlobal()">Voltar</button>
+                <button type="button" class="btn-primary" style="background: var(--cor-perigo)" onclick="executarDescarteGlobal()">Descartar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-entrega">
+        <div class="modal-box" style="width: 700px; max-height: 95vh; display: flex; flex-direction: column;">
+            <div class="modal-header" style="background: var(--cor-primaria); color: white; padding: 15px;">
+                <span style="font-weight: bold; font-size: 1.1rem;">Registrar Entrega de EPIs</span>
+            </div>
+            
+            <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 20px; background: #f4f6f9;">
+                <form id="form-entrega">
+                    <div class="card p-3 mb-3">
+                        <div class="row">
+                            <div class="col-md-8 mb-2">
+                                <label class="small fw-bold">Colaborador</label>
+                                <select id="ent-colaborador" class="form-control" required>
+                                    <option value="">Carregando...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <label class="small fw-bold">Data da Entrega</label>
+                                <input type="date" id="ent-data" class="form-control" required onchange="recalcularVencimentosCards()">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-12">
+                                <label class="small fw-bold">Observação Geral</label>
+                                <textarea id="ent-obs" class="form-control" rows="1" placeholder="Opcional..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 0 5px;">
+                        <label class="small fw-bold" style="color: #555; text-transform: uppercase;">Itens da Entrega</label>
+                        <button type="button" class="btn-icon-search" onclick="abrirModalCatalogo()" title="Adicionar item do catálogo">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+
+                    <div id="lista-itens-entrega" style="display: flex; flex-direction: column; gap: 10px; min-height: 100px;">
+                        <div class="text-center text-muted p-4" id="msg-sem-itens">
+                            <i class="fas fa-box-open fa-2x mb-2" style="opacity: 0.3;"></i><br>
+                            Nenhum item adicionado.
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <div class="modal-footer" style="padding: 15px; background: white; text-align: right; border-top: 1px solid #eee;">
+                <button type="button" class="btn-cancel" onclick="fecharModalEntrega()">Cancelar</button>
+                <button type="button" class="btn-primary" onclick="salvarEntregaMultipla()">
+                    <i class="fas fa-check"></i> Confirmar Entrega
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-selecao-catalogo" style="z-index: 1600;">
+        <div class="modal-box" style="width: 800px; max-height: 90vh; display: flex; flex-direction: column;">
+            <div class="modal-header" style="background: #343a40; color: white; padding: 10px 15px;">
+                <span><i class="fas fa-search"></i> Catálogo de EPIs</span>
+                <button onclick="fecharModalCatalogo()" style="color:white; background:none; border:none; font-size:1.2rem; cursor:pointer;">&times;</button>
+            </div>
+            
+            <div class="modal-body" style="flex: 1; overflow: hidden; display: flex; flex-direction: column; padding: 15px;">
+                <input type="text" id="filtro-catalogo-input" class="form-control mb-3" placeholder="Digite nome ou CA..." onkeyup="filtrarTabelaCatalogo()">
+                
+                <div class="table-wrapper" style="flex:1; border:1px solid #eee; border-radius:4px; overflow-y:auto;">
+                    <table class="table table-hover" style="font-size: 0.9rem;">
+                        <thead style="position: sticky; top: 0; background: #f8f9fa;">
+                            <tr>
+                                <th>Nome / Descrição</th>
+                                <th>C.A.</th>
+                                <th>Validade (Dias)</th>
+                                <th style="width: 50px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-catalogo-epi"></tbody>
+                    </table>
+                </div>
+                <small class="text-muted mt-2"><i class="fas fa-mouse-pointer"></i> Clique duplo para adicionar.</small>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../config.js"></script> 
+    <script src="../js/auth_guard.js"></script>
+
+    <script src="js/home.js"></script> 
+
+    <script src="js/acoes_checklist.js?v=9999"></script>
+    <script src="js/lancamentos_diarias.js"></script>
+    <script src="js/lancamento_premiacao.js"></script>
+    <script src="js/controle_epi.js"></script>
+    <script src="js/controle_uniformes.js"></script>
+    <script src="js/chamados.js"></script>
+    <script src="js/ferias.js"></script>
+    <script src="js/coletas.js"></script>
+    <script src="js/relatorios_checklist.js"></script>
+    <script src="js/relatorios_diaria.js"></script>
+    <script src="js/relatorios_premiacao.js"></script>
+    <script src="js/relatorios_coletas.js"></script>
+    <script src="js/relatorios_ferias.js"></script>
+    <script src="js/relatorios_usuarios.js"></script>
+    <script src="js/relatorios_veiculos.js"></script>
+    <script src="js/users.js"></script>
+    <script src="js/units.js"></script>
+    <script src="js/vehicles.js"></script>
+    <script src="js/checklists.js"></script>
+    <script src="js/epis.js"></script>
+    <script src="js/uniformes.js"></script>
+    <script src="js/diarias.js"></script>
+    <script src="js/premiacoes.js"></script>
+    <script src="js/manutencao.js"></script>
+    <script src="js/fornecedores.js"></script>
+    <script src="js/catalogo.js"></script>
+    <script src="js/pneus_estoque.js"></script>
+    <script src="js/pneus_aplicacao.js"></script>
+
+    <script src="js/calculadora.js"></script> <script src="js/app.js"></script>
+    <script src="js/sobre.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+             // Carrega a Home (Visão Geral) por padrão
+             carregarVisaoGeral();
+             configurarBotaoVersaoMobile();
+        });
+
+        // Função para controle visual do menu ativo
+        function marcarMenuAtivo(elementoClicado) {
+            const todosItens = document.querySelectorAll('.submenu-item');
+            todosItens.forEach(item => {
+                item.classList.remove('menu-ativo');
+            });
+            if (elementoClicado) {
+                elementoClicado.classList.add('menu-ativo');
+            }
+        }
+
+       if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // Mudamos o escopo de '/' para './' para ele cuidar apenas da pasta admin
+                navigator.serviceWorker.register('service-worker.js', { scope: './' })
+                .then(reg => console.log('PWA Admin: Ativo no escopo local'))
+                .catch(err => console.error('Erro ao registrar PWA Admin:', err));
+            });
+        }
+
+        async function configurarBotaoVersaoMobile() {
+            try {
+                // Recupera a sessão atual
+                const { data: { session } } = await clienteSupabase.auth.getSession();
+                if (!session) return;
+
+                // Busca o perfil no banco
+                const { data: perfil } = await clienteSupabase
+                    .from('perfis')
+                    .select('funcao')
+                    .eq('id', session.user.id)
+                    .single();
+
+                // Se for manutentor, injeta o botão de alternância
+                if (perfil && (perfil.funcao === 'manutencao' || perfil.funcao === 'manutentor')) {
+                    const container = document.getElementById('container-switch-mobile');
+                    if (container) {
+                        container.innerHTML = `
+                            <div class="menu-parent" onclick="window.location.href='../app/manutencao.html'" 
+                                 style="background-color: rgba(40, 167, 69, 0.1) !important; color: #28a745 !important; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                <div><i class="fas fa-mobile-alt icon-left"></i> Versão Mobile</div>
+                            </div>
+                        `;
+                    }
+                }
+            } catch (err) {
+                console.error("Erro ao configurar botão de versão mobile:", err);
+            }
+        }
+    </script>
+
+</body>
+</html>

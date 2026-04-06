@@ -1,0 +1,286 @@
+<div class="card" style="height: 100%; display: flex; flex-direction: column;">
+    
+    <div class="toolbar">
+        <div class="filter-container">
+            <input type="text" class="form-control" placeholder="Buscar modelo..." 
+                   onkeyup="filtrarModelos(this.value)" style="max-width: 300px;">
+        </div>
+        
+        <div style="flex:1; display:flex; justify-content:flex-end;">
+            <button class="btn-new-user" onclick="abrirModalChecklist()" title="Novo Modelo">
+                <i class="fas fa-plus-circle"></i> Novo Modelo
+            </button>
+        </div>
+    </div>
+
+    <div class="stats-bar">
+        <div class="stats-count" id="lbl-contagem-checklists">Carregando...</div>
+    </div>
+
+    <div class="table-wrapper">
+        <table id="tabela-checklists">
+            <thead>
+                <tr>
+                    <th>Título do Modelo</th>
+                    <th>Descrição</th>
+                    <th>Qtd. Itens</th>
+                    <th>Status</th>
+                    <th style="width: 160px;">Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tbody-checklists">
+                <tr><td colspan="5" class="text-center p-3">Carregando... <i class="fas fa-spinner fa-spin"></i></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-checklist">
+    <div class="modal-box" style="width: 900px; height: 90vh; display: flex; flex-direction: column;">
+    
+    <div class="modal-header" style="flex-shrink: 0;">
+        <span id="titulo-modal-checklist">Gerenciar Modelo</span>
+    </div>
+    
+    <form id="form-checklist" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+        <input type="hidden" id="chk-id">
+
+        <div class="tabs-header">
+            <button type="button" class="tab-btn active" onclick="mudarAba('tab-dados')">1. Dados</button>
+            <button type="button" class="tab-btn" onclick="mudarAba('tab-categorias')">2. Categorias</button>
+            <button type="button" class="tab-btn" onclick="mudarAba('tab-itens')">3. Itens</button>
+            <button type="button" class="tab-btn" onclick="mudarAba('tab-veiculos')">4. Veículos Vinculados</button>
+        </div>
+
+        <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden; background-color: #f8f9fa;">
+            
+            <div id="tab-dados" class="tab-content active" style="padding: 20px; overflow-y: auto;">
+                <div class="form-group">
+                    <label>Título do Checklist</label>
+                    <input type="text" class="form-control" id="chk-titulo" required placeholder="Ex: Vistoria Diária - Carreta">
+                </div>
+                <div class="form-group">
+                    <label>Descrição</label>
+                    <textarea class="form-control" id="chk-descricao" rows="4" placeholder="Descreva o objetivo deste checklist..."></textarea>
+                </div>
+            </div>
+
+            <div id="tab-categorias" class="tab-content" style="display:none; flex-direction: column; height: 100%;">
+                <div class="tab-toolbar" style="padding: 15px 20px; background: #fff; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
+                    <p class="tab-desc">Grupos de perguntas (ex: Pneus, Cabine).</p>
+                    <button type="button" class="btn-action-tab" onclick="abrirModalNovaCategoria()">
+                        <i class="fas fa-plus"></i> Nova Categoria
+                    </button>
+                </div>
+                <div id="lista-categorias-container" class="list-container" style="flex: 1; overflow-y: auto; padding: 20px;"></div>
+            </div>
+
+            <div id="tab-itens" class="tab-content" style="display:none; flex-direction: column; height: 100%;">
+                <div class="tab-toolbar" style="padding: 15px 20px; background: #fff; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
+                    <p class="tab-desc">Perguntas vinculadas às categorias.</p>
+                    <button type="button" class="btn-action-tab" onclick="abrirModalNovoItem()">
+                        <i class="fas fa-plus"></i> Novo Item
+                    </button>
+                </div>
+                <div id="lista-itens-container" class="list-container" style="flex: 1; overflow-y: auto; padding: 20px;"></div>
+            </div>
+
+            <div id="tab-veiculos" class="tab-content" style="display:none; flex-direction: column; height: 100%;">
+                <div class="tab-toolbar" style="padding: 15px 20px; background: #fff; border-bottom: 1px solid #ddd;">
+                    <p class="tab-desc">Selecione quais veículos devem utilizar este modelo de checklist.</p>
+                    <input type="text" class="form-control" placeholder="Filtrar placa..." onkeyup="filtrarVeiculosChecklist(this.value)" style="margin-top:10px; font-size: 0.9rem;">
+                </div>
+                <div id="lista-veiculos-container" class="list-container" style="flex: 1; overflow-y: auto; padding: 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; align-content: start;">
+                    </div>
+            </div>
+
+        </div>
+
+        <div class="modal-footer" style="padding-top: 15px; border-top: 1px solid #eee; background: #fff; flex-shrink: 0;">
+            <button type="button" class="btn-cancel" onclick="fecharModalChecklist()">Fechar / Cancelar</button>
+            <button type="submit" class="btn-primary" id="btn-salvar-checklist">Salvar Modelo Completo</button>
+        </div>
+    </form>
+</div>
+</div>
+
+<div class="modal-overlay" id="modal-nova-categoria" style="z-index: 1050;">
+    <div class="modal-box" style="width: 400px;">
+        <div class="modal-header">Categoria</div>
+        <div class="form-group">
+            <label>Nome da Categoria</label>
+            <input type="text" id="cat-nome-input" class="form-control" placeholder="Ex: Segurança">
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-cancel" onclick="fecharModalCategoria()">Cancelar</button>
+            <button type="button" class="btn-primary" onclick="confirmarAdicaoCategoria()">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-novo-item" style="z-index: 1050;">
+    <div class="modal-box" style="width: 650px;"> <div class="modal-header">Item de Verificação</div>
+        
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:15px;">
+            <div>
+                <label style="font-size:12px; font-weight:bold;">Categoria Pai</label>
+                <select id="item-categoria-select" class="form-control"></select>
+            </div>
+            <div>
+                <label style="font-size:12px; font-weight:bold;">Tipo de Resposta</label>
+                <select id="item-tipo-select" class="form-control" onchange="toggleOpcoesRespostaModal()">
+                    <option value="ok_nok">Conforme / Não Conforme</option>
+                    <option value="selecao">Lista de Seleção</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="div-opcoes-resposta-modal" style="display:none; margin-bottom:15px; background:#f8f9fa; padding:15px; border-radius:8px; border:1px solid #e9ecef;">
+            <div class="form-group">
+                <label style="font-size:12px; font-weight:bold; color:#003399;">Gerenciar Opções da Lista</label>
+                <div style="display: flex; gap: 5px;">
+                    <input type="text" id="input-add-opcao" class="form-control" 
+                        placeholder="Digite uma opção e pressione Enter (Ex: Ruim)" 
+                        onkeypress="if(event.key === 'Enter') { event.preventDefault(); adicionarOpcaoNaLista(); }">
+                    <button type="button" class="btn-primary" onclick="adicionarOpcaoNaLista()" title="Adicionar" style="padding: 0 15px;">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+                <small style="color:#666;">Adicione as opções que aparecerão para o motorista.</small>
+                <div id="container-pills-opcoes" class="pill-container"></div>
+            </div>
+
+            <div class="form-group" style="margin-top:15px; border-top: 1px solid #e9ecef; padding-top: 15px;">
+                <label style="font-size:12px; font-weight:bold; color:#dc3545;">Qual dessas opções é considerada DIVERGÊNCIA (NOK)?</label>
+                <select id="select-opcao-nok" class="form-control">
+                    <option value="">-- Selecione uma opção acima --</option>
+                </select>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px;">
+            <div style="flex: 1;">
+                <label style="font-size:12px; font-weight:bold;">Pergunta / Item a verificar</label>
+                <input type="text" id="item-pergunta-input" class="form-control" placeholder="Ex: Verificar nível do óleo">
+            </div>
+            
+            <div style="width: 100px;">
+                <label style="font-size:12px; font-weight:bold; color:#003399;" title="Tempo para resolver em horas">SLA (h)</label>
+                <input type="number" id="item-sla-input" class="form-control" value="24" min="1" style="text-align: center;">
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 20px; padding-top: 15px; border-top: 1px solid #eee;">
+            <div class="form-group" style="margin: 0;">
+                <label style="display:flex; align-items:center; cursor:pointer; font-weight:600; color:#555;" 
+                       title="Se marcado, o motorista será obrigado a anexar uma foto mesmo que a resposta seja 'Conforme'.">
+                    <input type="checkbox" id="chk-exige-foto" style="width:16px; height:16px; margin-right:8px;"> 
+                    <i class="fas fa-camera" style="margin-right:5px;"></i> Foto Obrigatória
+                </label>
+            </div>
+
+            <div class="form-group" style="margin: 0;">
+                <label style="display:flex; align-items:center; cursor:pointer; font-weight:600; color:#dc3545;"
+                       title="Se marcado e o motorista responder 'Não Conforme' (ou a opção NOK), o sistema impedirá o início da viagem.">
+                    <input type="checkbox" id="chk-bloqueia-viagem" style="width:16px; height:16px; margin-right:8px;"> 
+                    <i class="fas fa-hand-paper" style="margin-right:5px;"></i> Impede Viagem se NOK
+                </label>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn-cancel" onclick="fecharModalItem()">Cancelar</button>
+            <button type="button" class="btn-primary" onclick="confirmarAdicaoItem()">Salvar Item</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-exclusao-item" style="z-index: 1100;">
+    <div class="modal-box" style="width: 400px;">
+        <div class="modal-header" style="color: var(--cor-perigo);">
+            <i class="fas fa-trash-alt"></i> Confirmar Exclusão
+        </div>
+        <p id="msg-exclusao-item" style="margin: 20px 0; color: #555;">
+            </p>
+        <div class="modal-footer">
+            <button type="button" class="btn-cancel" onclick="fecharModalExclusao()">Cancelar</button>
+            <button type="button" class="btn-primary" style="background: var(--cor-perigo);" onclick="confirmarExclusaoLista()">Sim, Excluir</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-alerta" style="z-index: 2000;">
+    <div class="modal-box" style="width: 350px; text-align: center; padding: 30px;">
+        <div style="margin-bottom: 20px;">
+            <i class="fas fa-exclamation-circle" style="color: #f0ad4e; font-size: 3.5rem;"></i>
+        </div>
+        <h3 style="margin: 0 0 10px 0; color: #333; font-size: 1.2rem;">Atenção</h3>
+        <p id="msg-alerta-texto" style="color: #666; font-size: 0.95rem; margin-bottom: 25px; line-height: 1.5;"></p>
+        <button type="button" class="btn-primary" onclick="fecharModalAlerta()" style="width: 100%; justify-content: center;">
+            Entendido
+        </button>
+    </div>
+</div>
+
+<style>
+    /* Estilos Locais */
+    .tabs-header { display: flex; border-bottom: 1px solid #ddd; background: #fff; padding: 0 20px; }
+    .tab-btn { background: none; border: none; padding: 15px 20px; font-weight: 600; color: #666; cursor: pointer; border-bottom: 3px solid transparent; }
+    .tab-btn:hover { color: var(--cor-primaria); background: #f9f9f9; }
+    .tab-btn.active { color: var(--cor-primaria); border-bottom-color: var(--cor-primaria); }
+    
+    .tab-desc { font-size: 13px; color: #666; margin: 0; }
+    
+    .btn-action-tab { background: var(--cor-primaria); color: #fff; border: none; padding: 8px 15px; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .btn-action-tab:hover { background: var(--cor-secundaria); transform: translateY(-1px); }
+
+    .list-container { display: flex; flex-direction: column; gap: 8px; }
+    
+    .cat-item-row { background: #fff; border: 1px solid #ddd; padding: 10px 15px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
+    .item-detail-row { background: #fff; border-left: 4px solid var(--cor-primaria); padding: 12px; margin-bottom: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border-radius: 4px; }
+    
+    .badge-tipo { font-size: 10px; background: #eee; padding: 2px 6px; border-radius: 4px; color: #555; text-transform: uppercase; }
+    .badge-restricao { font-size: 10px; color: #dc3545; font-weight: bold; margin-left: 5px; }
+    /* Estilo para as pílulas de opções */
+    .pill-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+        min-height: 38px; /* Altura mínima para não pular layout */
+    }
+
+    .pill-item {
+        background-color: #e9ecef;
+        border: 1px solid #ced4da;
+        border-radius: 20px;
+        padding: 5px 12px;
+        font-size: 0.9rem;
+        color: #495057;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s;
+    }
+
+    .pill-item:hover {
+        background-color: #dee2e6;
+    }
+
+    .pill-remove {
+        cursor: pointer;
+        color: #dc3545;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+    }
+
+    .pill-remove:hover {
+        background-color: #dc3545;
+        color: white;
+    }
+</style>

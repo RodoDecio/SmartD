@@ -1,0 +1,82 @@
+<div class="card" style="height: 100%; display: flex; flex-direction: column;">
+    
+    <div class="toolbar">
+        <div class="filter-container">
+            <input type="text" class="form-control" placeholder="Pesquisar por nome ou cidade..." 
+                   onkeyup="filtrarUnidades(this.value)" style="max-width: 300px;">
+        </div>
+        
+        <div style="flex:1; display:flex; justify-content:flex-end;">
+            <button class="btn-new-user" onclick="abrirModalUnidade()" title="Nova Unidade">
+                <i class="fas fa-building"></i> Nova Unidade
+            </button>
+        </div>
+    </div>
+
+    <div class="stats-bar">
+        <div class="stats-count" id="lbl-contagem-units">Carregando...</div>
+    </div>
+
+    <div class="table-wrapper">
+        <table id="tabela-unidades">
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>E-mail</th>
+                    <th>Cidade / UF</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tbody-unidades">
+                <tr><td colspan="5" class="text-center p-3">Carregando... <i class="fas fa-spinner fa-spin"></i></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-unidade">
+    <div class="modal-box">
+        <div class="modal-header" id="titulo-modal-unidade">Nova Unidade</div>
+        <form id="form-unidade">
+            <input type="hidden" id="unit-id">
+            
+            <div class="form-group">
+                <label>Nome da Unidade / Filial</label>
+                <input type="text" class="form-control" id="unit-nome" required placeholder="Ex: Matriz Administrativa">
+            </div>
+
+            <div class="form-group">
+                <label>E-mail da Unidade</label>
+                <input type="email" class="form-control" id="unit-email" placeholder="unidade@frota.com">
+            </div>
+
+            <div style="display: flex; gap: 15px;">
+                <div class="form-group" style="flex: 2;">
+                    <label>Cidade</label>
+                    <input type="text" class="form-control" id="unit-cidade" required placeholder="Ex: Rio Verde">
+                </div>
+                
+                <div class="form-group" style="flex: 1;">
+                    <label>UF</label>
+                    <select class="form-control" id="unit-estado">
+                        <option value="GO">GO</option>
+                        <option value="TO">TO</option>
+                        <option value="MT">MT</option>
+                        <option value="MS">MS</option>
+                        <option value="MG">MG</option>
+                        <option value="SP">SP</option>
+                        <option value="BA">BA</option>
+                        <option value="PA">PA</option>
+                        <option value="MA">MA</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" onclick="fecharModalUnidade()">Cancelar</button>
+                <button type="submit" class="btn-primary">Salvar</button>
+            </div>
+        </form>
+    </div>
+</div>

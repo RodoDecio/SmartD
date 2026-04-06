@@ -1,0 +1,111 @@
+<div class="card" style="height: 100%; display: flex; flex-direction: column;">
+    
+    <div class="toolbar">
+        <div class="filter-container">
+            <input type="text" class="form-control" placeholder="Buscar uniforme..." 
+                   onkeyup="filtrarUniformes(this.value)" style="max-width: 300px;">
+        </div>
+        
+        <div style="flex:1; display:flex; justify-content:flex-end;">
+            <button class="btn-new-user" onclick="abrirModalUniforme()" title="Novo Uniforme">
+                <i class="fas fa-tshirt"></i> Novo Uniforme
+            </button>
+        </div>
+    </div>
+
+    <div class="stats-bar">
+        <div class="stats-count" id="lbl-contagem-uniformes">Carregando...</div>
+    </div>
+
+    <div class="table-wrapper">
+        <table id="tabela-uniformes">
+            <thead>
+                <tr>
+                    <th>Peça / Nome</th>
+                    <th>Tipo</th>
+                    <th>Tamanho</th>
+                    <th>Gênero</th>
+                    <th>Status</th>
+                    <th style="width: 160px;">Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tbody-uniformes">
+                <tr><td colspan="6" class="text-center p-3">Carregando... <i class="fas fa-spinner fa-spin"></i></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-uniforme">
+    <div class="modal-box" style="width: 500px;">
+        <div class="modal-header" id="titulo-modal-uniforme">Novo Uniforme</div>
+        <form id="form-uniforme">
+            <input type="hidden" id="uni-id">
+            
+            <div class="form-group">
+                <label>Nome da Peça</label>
+                <input type="text" class="form-control" id="uni-nome" required placeholder="Ex: Camisa Polo Operacional">
+            </div>
+
+            <div style="display: flex; gap: 15px;">
+                <div class="form-group" style="flex: 1;">
+                    <label>Tipo</label>
+                    <select class="form-control" id="uni-tipo" required>
+                        <option value="">Selecione...</option>
+                        <option value="Camisa">Camisa / Camiseta</option>
+                        <option value="Calça">Calça</option>
+                        <option value="Jaqueta">Jaqueta / Blusa</option>
+                        <option value="Calçado">Calçado (Bota/Sapato)</option>
+                        <option value="Acessório">Acessório (Boné/Cinto)</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>Gênero</label>
+                    <select class="form-control" id="uni-genero">
+                        <option value="Unissex">Unissex</option>
+                        <option value="Masculino">Masculino</option>
+                        <option value="Feminino">Feminino</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Tamanho</label>
+                <select class="form-control" id="uni-tamanho" required>
+                    <option value="">Selecione...</option>
+                    <optgroup label="Letras">
+                        <option value="PP">PP</option>
+                        <option value="P">P</option>
+                        <option value="M">M</option>
+                        <option value="G">G</option>
+                        <option value="GG">GG</option>
+                        <option value="XG">XG</option>
+                    </optgroup>
+                    <optgroup label="Numeração (Calça/Bota)">
+                        <option value="34">34</option>
+                        <option value="35">35</option>
+                        <option value="36">36</option>
+                        <option value="37">37</option>
+                        <option value="38">38</option>
+                        <option value="39">39</option>
+                        <option value="40">40</option>
+                        <option value="41">41</option>
+                        <option value="42">42</option>
+                        <option value="43">43</option>
+                        <option value="44">44</option>
+                        <option value="45">45</option>
+                        <option value="46">46</option>
+                        <option value="48">48</option>
+                        <option value="50">50</option>
+                        <option value="52">52</option>
+                    </optgroup>
+                </select>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" onclick="fecharModalUniforme()">Cancelar</button>
+                <button type="submit" class="btn-primary">Salvar</button>
+            </div>
+        </form>
+    </div>
+</div>

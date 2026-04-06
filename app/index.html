@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Smart D</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="manifest" href="manifest.json">
+
+
+    <script>
+        // Redireciona Manutentor para versão Mobile se estiver no celular
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Verifica se as bibliotecas carregaram
+            if (typeof clienteSupabase === 'undefined') return;
+
+            try {
+                const { data: { session } } = await clienteSupabase.auth.getSession();
+                
+                // Se não houver sessão (devido ao sessionStorage ou logout), manda para o login
+                if (!session) {
+                    window.location.href = '../index.html';
+                    return;
+                }
+
+                // Lógica para Manutentores (Seu código original corrigido)
+                const { data: perfil } = await clienteSupabase
+                    .from('perfis')
+                    .select('funcao')
+                    .eq('id', session.user.id)
+                    .single();
+
+                if (perfil && (perfil.funcao === 'manutencao' || perfil.funcao === 'manutentor')) {
+                    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                    
+                    // Se for mobile e não estiver na página certa, redireciona
+                    if (isMobile && !window.location.href.includes('manutencao.html')) {
+                        // Verifique se o caminho '../manutencao.html' está correto para sua estrutura
+                        // window.location.href = '../manutencao.html'; 
+                    }
+                }
+            } catch (err) {
+                console.error("Erro na verificação de acesso:", err);
+                window.location.href = '../index.html';
+            }
+        });
+
+        
+    </script>
+
+    <style>
+        :root { 
+            --cor-primary: #003366; 
+            --cor-bg: #f4f6f9; 
+            --cor-ok: #28a745; 
+            --cor-nok: #dc3545; 
+            --cor-warn: #fd7e14;
+        }
+        
+        * { box-sizing: border-box; }
+
+        body { 
+            margin: 0; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            
+            /* Layout Flexível Vertical */
+            display: flex; 
+            flex-direction: column; 
+            
+            height: 100dvh; 
+            
+            overflow: hidden; /* Impede que a página inteira role, apenas o miolo */
+            color: #333; 
+            background-color: #f4f6f9;
+            z-index: 1;
+        }
+
+        /* --- MARCA D'ÁGUA (Fundo Transparente) --- */
+        body::before {
+            content: "";
+            position: absolute;
+            top: 50%; 
+            left: 50%;
+            transform: translate(-50%, -50%); /* Centraliza exato */
+            width: 100%; 
+            height: 100%;
+            
+            /* Caminho da imagem */
+            background-image: url('../admin/icons/icon-512x512.png'); 
+            background-position: center;
+            background-repeat: no-repeat;
+            
+            /* TAMANHO DISCRETO */
+            background-size: 150px; 
+            
+            /* TRANSPARÊNCIA ALTA (Bem suave) */
+            opacity: 0.05; 
+            
+            z-index: -1; /* Fica atrás de tudo */
+            pointer-events: none;
+        }
+
+        /* Header */
+        .app-header {
+            background: rgba(0, 51, 102, 0.95);
+            color: white; padding: 15px; 
+            flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 100;
+            backdrop-filter: blur(5px);
+        }
+        .app-header h3 { margin: 0; font-size: 1.1rem; font-weight: 600; }
+        .btn-icon { background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer; }
+
+        /* Filtros */
+        .filter-section {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 15px; border-bottom: 1px solid #ddd;
+            flex-shrink: 0; z-index: 90; display: flex; flex-direction: column; gap: 5px;
+        }
+        .filter-row { display: grid; grid-template-columns: 1fr 1.5fr; gap: 10px; }
+        .filter-col { display: flex; flex-direction: column; }
+        .filter-label { font-size: 0.7rem; color: #333; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; }
+        .form-control-sm { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; background: #fff; height: 42px; color: #333; }
+
+        /* Lista e Scroll */
+        .content-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            padding-bottom: 110px !important; /* Aumentado para compensar o rodapé fixo */
+            position: relative;
+            background: transparent;
+        }
+
+        /* Cards Histórico */
+        .history-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px; padding: 15px; margin-bottom: 12px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08); border-left: 5px solid #ccc;
+            position: relative; cursor: pointer; color: #333;
+        }
+        .history-card:active { transform: scale(0.98); background: #f0f0f0; }
+        
+        .status-concluido { border-left-color: var(--cor-ok); }
+        .status-divergente { border-left-color: var(--cor-nok); }
+        .status-pendente { border-left-color: var(--cor-warn); }
+
+        .card-model { font-size: 1.1rem; font-weight: 800; color: var(--cor-primary); display: block; }
+        .card-brand { font-size: 0.9rem; color: #555; font-weight: 600; display: block; }
+        .card-plate { font-size: 0.8rem; color: #555; background: #eee; padding: 2px 6px; border-radius: 4px; display: inline-block; }
+        .card-meta { position: absolute; top: 15px; right: 15px; text-align: right; }
+        .card-status { font-weight: bold; font-size: 0.7rem; text-transform: uppercase; display: block; }
+        .card-date { font-size: 0.75rem; color: #777; display: block; }
+        .card-resp { font-size: 0.7rem; color: var(--cor-primary); font-style: italic; display: block; }
+
+        /* FAB */
+        .fab {
+            position: fixed; bottom: 85px; right: 20px; width: 56px; height: 56px;
+            background: var(--cor-primary); color: white; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-size: 1.5rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: none; cursor: pointer; z-index: 200;
+        }
+
+        /* Rodapé User */
+        .user-footer {
+            position: fixed; /* Fixa em relação à janela, não ao corpo */
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            
+            background: #fff; 
+            border-top: 1px solid #eee;
+            z-index: 1000;
+            
+            /* Espaçamento interno */
+            padding: 12px 20px;
+            padding-bottom: calc(12px + env(safe-area-inset-bottom)); /* Segurança iPhone */
+            
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.1); 
+        }
+        .user-name { 
+            font-weight: bold; 
+            color: var(--cor-primary); 
+            font-size: 0.95rem; 
+            
+            /* Garante que texto longo termine com "..." */
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis;
+            display: block;
+        }
+
+        .user-role { 
+            font-size: 0.75rem; 
+            color: #666; 
+            text-transform: uppercase; 
+            display: block;
+            margin-top: 2px;
+        }
+
+        .user-avatar { 
+            width: 42px; height: 42px; 
+            background: #e9ecef; border-radius: 50%; 
+            display: flex; align-items: center; justify-content: center; 
+            color: #666; overflow: hidden;
+            flex-shrink: 0; /* Garante que o avatar não amasse */
+        }
+
+        /* --- TELA DE EXECUÇÃO/DETALHES --- */
+        .execution-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            /* Fundo escurecido para foco */
+            background-color: #f4f6f9; 
+            
+            z-index: 2000; display: none; flex-direction: column; 
+        }
+        
+        .step-content { flex: 1; overflow-y: auto; padding: 20px; padding-bottom: 100px; }
+        
+        .clean-card, .question-card {
+            background: white; border-radius: 15px; padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; color: #333;
+        }
+
+        .form-group label { display: block; margin-bottom: 8px; font-weight: bold; color: #333; }
+        .form-control { width: 100%; padding: 14px; border: 1px solid #ddd; border-radius: 10px; font-size: 1rem; background: #fff; color: #333; }
+        
+        .vehicle-id-card {
+            background: #eef2f7; border-left: 5px solid var(--cor-primary);
+            border-radius: 10px; padding: 15px; margin-bottom: 25px; display: none;
+            position: relative; color: #333;
+        }
+        .vid-model { font-size: 1.3rem; color: var(--cor-primary); font-weight: 800; margin: 5px 0; }
+        .vid-last-date { position: absolute; top: 15px; right: 15px; font-size: 0.75rem; color: #888; text-align: right; }
+
+        /* Elementos do Form */
+        .category-title { color: #666; font-weight: bold; text-transform: uppercase; margin: 25px 0 10px 5px; font-size: 0.9rem; }
+        
+        .toggle-options { display: flex; gap: 10px; }
+        .opt-btn { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; background: #fff; color: #666; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; }
+        .opt-btn.active-ok { background: #d4edda; color: #155724; border-color: #c3e6cb; }
+        .opt-btn.active-nok { background: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+        
+        .selection-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 8px; }
+        .sel-btn { padding: 12px 5px; border: 1px solid #ddd; border-radius: 8px; background: #fff; color: #555; text-align: center; cursor: pointer; }
+        .sel-btn.selected { background: var(--cor-primary); color: white; border-color: var(--cor-primary); }
+
+        .footer-action {
+            padding: 15px 20px; background: white; border-top: 1px solid #eee; 
+            flex-shrink: 0; box-shadow: 0 -4px 15px rgba(0,0,0,0.1); z-index: 2001;
+        }
+        .btn-save-final {
+            background: var(--cor-primary); color: white; border: none; padding: 16px; border-radius: 12px; 
+            font-size: 1.1rem; font-weight: 800; width: 100%; cursor: pointer; text-transform: uppercase;
+        }
+
+        /* Modal Personalizado */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 9999; opacity: 0; visibility: hidden; transition: all 0.3s ease;
+        }
+        .modal-overlay.active { opacity: 1; visibility: visible; }
+        .custom-modal {
+            background: #fff; padding: 25px; border-radius: 12px; width: 85%; max-width: 320px;
+            text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+        .custom-modal h3 { color: #333; margin: 0 0 10px 0; }
+        .custom-modal p { color: #666; font-size: 16px; margin-bottom: 25px; }
+        .modal-btn { background: var(--cor-primary); color: #fff; border: none; padding: 10px 30px; border-radius: 25px; font-weight: bold; cursor: pointer; width: 100%; }
+
+        /* Splash */
+        #splash-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--cor-primary);
+            z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; transition: opacity 0.5s ease-out;
+        }
+
+        /* Adicione dentro da tag <style> no index.html */
+        .alert-block-viagem {
+            background-color: #721c24;
+            color: white;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            display: none; /* Oculto por padrão */
+            animation: fadeIn 0.3s;
+        }
+        .alert-block-viagem i { margin-right: 8px; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* --- LOADER OVERLAY (Novo) --- */
+        #loading-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(2px);
+            z-index: 3000; /* Acima de tudo */
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--cor-primary);
+        }
+
+        /* --- AJUSTE: MARCA D'ÁGUA NA TELA DE EXECUÇÃO --- */
+        /* Adicionamos o mesmo efeito do body na tela de execução */
+        .execution-screen::before {
+            content: "";
+            position: absolute;
+            top: 50%; 
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%; 
+            height: 100%;
+            background-image: url('../admin/icons/icon-512x512.png'); 
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: 150px; 
+            opacity: 0.05; 
+            z-index: -1; /* Fica atrás do conteúdo */
+            pointer-events: none;
+        }
+
+        /* Estilo para travar a altura e largura dos inputs de filtro */
+        .form-control {
+            width: 100%;       /* Ocupa todo o espaço do container pai */
+            box-sizing: border-box;
+            height: 40px;      /* Altura fixa */
+            font-size: 0.9rem;
+            padding: 5px 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            background-color: #fff;
+            /* Evita que texto longo quebre o layout */
+            text-overflow: ellipsis; 
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        /* --- Estilo Base para Botões de Foto Pequenos --- */
+        .btn-foto-mini {
+            /* Reset de estilos padrão do navegador */
+            background-image: none;
+            text-shadow: none;
+            box-shadow: none;
+            
+            /* Layout e Espaçamento */
+            display: inline-flex;
+            align-items: center;
+            gap: 6px; /* Espaço entre ícone e texto */
+            padding: 8px 12px;
+            margin-left: 5px; /* Espacinho entre eles */
+            
+            /* Tipografia e Borda */
+            font-family: inherit; /* Usa a fonte do app */
+            font-size: 0.8rem;
+            font-weight: 600;
+            border-radius: 6px; /* Bordas arredondadas modernas */
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out; /* Suaviza o hover */
+        }
+
+        /* --- Estilo do Botão "Evidência" (Neutro/Secundário) --- */
+        .btn-foto-mini {
+            background-color: #f8f9fa; /* Fundo cinza bem claro */
+            color: #495057; /* Texto cinza escuro */
+            border-color: #dee2e6; /* Borda cinza sutil */
+        }
+
+        .btn-foto-mini:hover {
+            background-color: #e2e6ea; /* Escurece levemente ao passar o mouse */
+            border-color: #dae0e5;
+        }
+
+        .btn-foto-mini:active {
+            background-color: #dae0e5;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+        }
+
+        /* --- Estilo do Botão "Correção" (Destaque/Verde) --- */
+        /* A classe .destaque sobrescreve o estilo base */
+        .btn-foto-mini.destaque {
+            background-color: #28a745; /* Verde sucesso padrão do app */
+            color: #ffffff; /* Texto branco para contraste */
+            border-color: #28a745;
+            box-shadow: 0 2px 4px rgba(40, 167, 69, 0.25); /* Sombra sutil verde para "pop" */
+        }
+
+        .btn-foto-mini.destaque:hover {
+            background-color: #218838; /* Verde um pouco mais escuro */
+            border-color: #1e7e34;
+        }
+
+        .btn-foto-mini.destaque:active {
+            background-color: #1e7e34;
+            box-shadow: inset 0 3px 5px rgba(0,0,0,0.125);
+        }
+
+        /* Ajuste opcional para ícones se estiver usando FontAwesome dentro dos botões */
+        .btn-foto-mini i {
+            font-size: 0.9rem;
+        }
+
+        /* Botão de Confirmação no Modal (Estilo Moderno) */
+        #btn-confirma-recusa-modal {
+            background-color: #dc3545; /* Vermelho padrão do Bootstrap/App */
+            color: #ffffff;
+            border: none;
+            
+            /* Tipografia e Layout */
+            font-weight: 600;
+            font-size: 0.95rem;
+            padding: 10px 24px;
+            border-radius: 8px; /* Cantos arredondados modernos */
+            
+            /* Flex para alinhar ícone e texto perfeitamente */
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px; /* Espaço entre ícone e texto */
+            
+            /* Sombra e Transição */
+            box-shadow: 0 4px 6px rgba(220, 53, 69, 0.2);
+            transition: all 0.2s ease;
+            cursor: pointer;
+            min-width: 120px; /* Garante um tamanho mínimo clicável */
+        }
+
+        /* Efeito Hover (Mouse em cima) */
+        #btn-confirma-recusa-modal:hover {
+            background-color: #c82333; /* Vermelho um pouco mais escuro */
+            box-shadow: 0 6px 8px rgba(220, 53, 69, 0.3);
+            transform: translateY(-1px); /* Sobe levemente */
+        }
+
+        /* Efeito Active (Ao clicar) */
+        #btn-confirma-recusa-modal:active {
+            background-color: #bd2130;
+            box-shadow: 0 2px 4px rgba(220, 53, 69, 0.2);
+            transform: translateY(1px); /* Desce levemente (efeito tátil) */
+        }
+
+        /* Opcional: Estilizar o botão Cancelar para combinar (mas mais discreto) */
+        .btn-secondary-modal {
+            background-color: #f1f3f5;
+            color: #495057;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .btn-secondary-modal:hover {
+            background-color: #e9ecef;
+        }
+
+        #btn-confirma-recusa-modal {
+            background-color: #dc3545; /* Vermelho */
+            color: #ffffff;
+            border: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            padding: 12px 20px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px; /* Espaço entre ícone e texto */
+            box-shadow: 0 4px 6px rgba(220, 53, 69, 0.2);
+            transition: all 0.2s ease;
+            cursor: pointer;
+            flex: 1; /* Ocupa espaço igual ao cancelar */
+        }
+
+        #btn-confirma-recusa-modal:hover {
+            background-color: #c82333;
+            transform: translateY(-1px);
+        }
+
+        #btn-confirma-recusa-modal:active {
+            transform: translateY(1px);
+        }
+
+        /* Estilo do Botão Cancelar (Para combinar) */
+        .btn-cancelar-moderno {
+            background-color: #f1f3f5;
+            color: #495057;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 12px 20px;
+            font-weight: 600;
+            cursor: pointer;
+            flex: 1;
+        }
+ 
+    </style>
+</head>
+<body>
+
+    <div id="loading-overlay">
+        <div style="border: 4px solid #f3f3f3; border-top: 4px solid var(--cor-primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;"></div>
+        <p style="margin-top: 15px; font-weight: 600;">Carregando checklist...</p>
+    </div>
+
+    <div id="splash-screen">
+        <i class="fas fa-truck-moving fa-3x" style="margin-bottom: 20px;"></i>
+        <h2 id="splash-name">Bem-vindo</h2>
+        <p id="splash-role" style="opacity: 0.8;">Carregando...</p>
+        <div style="border: 3px solid rgba(255,255,255,0.3); border-top: 3px solid white; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin-top: 20px;"></div>
+    </div>
+
+    <div class="app-header">
+        <h3><i class="fas fa-truck-moving"></i> Meus Checklists</h3>
+        
+        <div style="display: flex; gap: 15px; align-items: center;">
+            
+            <button id="btn-voltar-admin" class="btn-icon" style="display: none; font-size: 1rem;" onclick="window.location.href='manutencao.html'">
+                <i class="fas fa-arrow-left"></i> Voltar
+            </button>
+
+            <button class="btn-icon" onclick="logoutApp()">
+                <i class="fas fa-sign-out-alt"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="filter-container" style="background: #fff; padding: 10px 15px; border-bottom: 1px solid #eee;">
+        <div style="display:flex; gap: 10px; align-items: flex-end;">
+            
+            <div style="flex: 1; min-width: 0;"> <label style="font-size: 0.75rem; font-weight: bold; color: #555; text-transform: uppercase; margin-bottom: 4px; display: block;">Filtrar Por</label>
+                <select id="filtro-tipo" class="form-control" onchange="configurarFiltros()" style="width: 100%; height: 40px;">
+                    <option value="status" selected>Status</option>
+                    <option value="placa">Placa</option>
+                    <option value="data">Data</option>
+                </select>
+            </div>
+
+            <div style="flex: 1.5; min-width: 0;"> <label style="font-size: 0.75rem; font-weight: bold; color: #555; text-transform: uppercase; margin-bottom: 4px; display: block;">Valor</label>
+                
+                <select id="filtro-valor-status" class="form-control" onchange="aplicarFiltro()" style="width: 100%; height: 40px; display:block;">
+                    <option value="">Carregando...</option>
+                </select>
+
+                <select id="filtro-valor-placa" class="form-control" onchange="aplicarFiltro()" style="width: 100%; height: 40px; display:none;">
+                    <option value="">Carregando...</option>
+                </select>
+
+                <input type="date" id="filtro-valor-data" class="form-control" onchange="aplicarFiltro()" style="width: 100%; height: 40px; display:none;">
+            </div>
+        </div>
+    </div>
+
+    <div class="content-scroll" id="lista-historico">
+        <p style="text-align:center; margin-top:50px; color:#777;"><i class="fas fa-spinner fa-spin"></i> Carregando...</p>
+    </div>
+
+    <button class="fab" onclick="abrirNovaInspecao()"><i class="fas fa-plus"></i></button>
+
+    <div class="user-footer">
+        <div class="user-info">
+            <span class="user-name" id="footer-name">...</span>
+            <span class="user-role" id="footer-role">...</span>
+        </div>
+        <div class="user-avatar">
+            <img src="" onerror="this.style.display='none'; this.nextElementSibling.style.display='block'" style="width:100%; height:100%; object-fit:cover; display:none;">
+            <i class="fas fa-user"></i>
+        </div>
+    </div>
+
+    <div id="tela-execucao" class="execution-screen">
+        <div class="app-header" style="background: rgba(0, 51, 102, 1);">
+            <button class="btn-icon" onclick="fecharExecucao()"><i class="fas fa-arrow-left"></i></button>
+            <h3 id="titulo-tela-exec">Novo Checklist</h3>
+            <div style="width:24px;"></div>
+        </div>
+
+        <div class="step-content">
+            <div id="step-dados">
+                <div class="clean-card">
+                    <div class="form-group">
+                        <label>Veículo</label>
+                        <select id="sel-veiculo" class="form-control" onchange="detectarModeloChecklist()">
+                            <option value="">Carregando...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>KM Atual</label>
+                        <input type="number" id="inp-km" class="form-control" placeholder="Ex: 125000" inputmode="numeric">
+                    </div>
+                </div>
+
+                <div id="modelo-info" class="vehicle-id-card">
+                    <div class="vid-last-date">Último: <span id="lbl-last-date">--/--</span></div>
+                    <div class="vid-brand" id="lbl-marca">MARCA</div>
+                    <div class="vid-model" id="lbl-modelo">MODELO</div>
+                    
+                    <div id="container-selecao-modelo" style="margin-top: 15px; border-top: 1px solid #ccc; padding-top: 10px; display: none;">
+                        <label style="font-size: 0.8rem; font-weight: bold; color: var(--cor-primary); display: block; margin-bottom: 5px;">
+                            Este veículo possui múltiplos modelos. Selecione:
+                        </label>
+                        <select id="sel-modelo-duplicado" class="form-control" onchange="selecionarModeloManual(this.value)" style="background: #fff; border-color: var(--cor-primary);">
+                            </select>
+                    </div>
+
+                    <small id="lbl-checklist-unico" style="color:#666; display:block; margin-top:5px;">Modelo: <span id="lbl-checklist-nome">Caminhão</span></small>
+                </div>
+            </div>
+
+            <div id="step-itens" style="display:none;">
+                <div id="container-perguntas"></div>
+            </div>
+        </div>
+
+        <div class="footer-action" id="footer-start">
+            <button class="btn-save-final" onclick="iniciarConferencia()">
+                INICIAR CONFERÊNCIA <i class="fas fa-arrow-right"></i>
+            </button>
+        </div>
+
+        <div class="footer-action" id="footer-save" style="display:none;">
+            <button class="btn-save-final" onclick="finalizarInspecao()">
+                <i class="fas fa-save"></i> SALVAR CHECKLIST
+            </button>
+        </div>
+        <div class="footer-action" id="footer-validacao" style="display:none; gap:10px; padding:15px;">
+            <button class="btn-save-final" onclick="validarCorrecao('reprovar')" style="background:#dc3545; flex:1;">
+                <i class="fas fa-times"></i> Recusar
+            </button>
+            <button class="btn-save-final" onclick="validarCorrecao('aprovar')" style="background:#28a745; flex:1;">
+                <i class="fas fa-check-double"></i> Aprovar Solução
+            </button>
+        </div>
+    </div>
+
+    <div id="customModal" class="modal-overlay">
+        <div class="custom-modal">
+            <h3 id="modalTitle">Aviso</h3>
+            <p id="modalMessage">Mensagem aqui...</p>
+            <button class="modal-btn" onclick="closeCustomModal()">OK</button>
+        </div>
+    </div>
+
+    <div id="modalConfirmacaoBloqueio" class="modal-overlay" style="z-index: 9999;">
+        <div class="custom-modal" style="border-left: 6px solid #dc3545; text-align:left;">
+            <h3 style="color: #dc3545; display:flex; align-items:center; gap:10px;">
+                <i class="fas fa-hand-paper"></i> ALERTA CRÍTICO
+            </h3>
+            <p style="font-size: 1rem; color: #333; margin: 15px 0;">
+                Existem itens reprovados que <b>IMPEDEM a viagem</b>.<br>
+                
+            </p>
+            <p style="font-size: 0.9rem; color: #666; margin-bottom: 20px;">
+                Deseja realmente confirmar este checklist?
+            </p>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button class="modal-btn" onclick="fecharModalBloqueio()" style="background:#ccc; color:#333; flex:1;">Cancelar</button>
+                <button class="modal-btn" onclick="confirmarSalvarBloqueado()" style="background:#dc3545; flex:1;">CONFIRMAR</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalConfirmacaoSaida" class="modal-overlay" style="z-index: 9999;">
+        <div class="custom-modal" style="text-align:left;">
+            <h3 style="color: #333;">Atenção</h3>
+            <p style="font-size: 1rem; color: #555; margin: 15px 0;">
+                Você tem dados não salvos no checklist.<br>
+                Se sair agora, <b>perderá o preenchimento</b> atual.
+            </p>
+            <p style="font-size: 0.9rem; color: #666; margin-bottom: 20px;">
+                Deseja realmente sair?
+            </p>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button class="modal-btn" onclick="fecharModalSaida()" style="background:#ccc; color:#333; flex:1;">Continuar Preenchendo</button>
+                <button class="modal-btn" onclick="confirmarSaidaSemSalvar()" style="background:var(--cor-primary); flex:1;">Sair</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-imagem" class="modal-overlay" style="z-index: 4000; background: rgba(0,0,0,0.95); display: none; align-items: center; justify-content: center;" onclick="fecharModalImagem()">
+        <div style="position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
+            
+            <button onclick="fecharModalImagem()" style="position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.2); border: none; color: white; width: 40px; height: 40px; border-radius: 50%; font-size: 1.5rem; cursor: pointer; z-index: 4001;">
+                <i class="fas fa-times"></i>
+            </button>
+
+            <img id="img-preview" src="" style="max-width: 95%; max-height: 90vh; border-radius: 4px; box-shadow: 0 0 20px rgba(0,0,0,0.8); object-fit: contain;">
+            
+        </div>
+    </div>
+
+    <div id="modalConfirmacaoAprovacao" class="modal-overlay" style="z-index: 9999;">
+        <div class="custom-modal" style="text-align:center;">
+            <div style="color: #28a745; font-size: 3rem; margin-bottom: 10px;">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <h3 style="color: #333;">Aprovar Solução?</h3>
+            <p style="font-size: 1rem; color: #555; margin: 15px 0;">
+                Você confirma que os reparos ficaram bons e deseja <b>encerrar este checklist</b>?
+            </p>
+            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+                <button class="modal-btn" onclick="fecharModalAprovacao()" style="background:#ccc; color:#333; flex:1;">Cancelar</button>
+                <button class="modal-btn" onclick="confirmarAprovacao()" style="background:#28a745; flex:1;">Sim, Encerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalRecusa" class="modal-overlay" style="z-index: 9999;">
+        <div class="custom-modal" style="text-align:left;">
+            <h3 style="color: #dc3545; display:flex; align-items:center; gap:10px;">
+                <i class="fas fa-exclamation-circle"></i> Recusar Solução
+            </h3>
+            <p style="font-size: 0.9rem; color: #555; margin: 10px 0;">
+                Descreva abaixo o motivo para devolver este checklist para a manutenção:
+            </p>
+            
+            <textarea id="txt-motivo-recusa" class="form-control" rows="3" placeholder="Ex: O pneu continua careca, favor verificar..." style="width:100%; margin-bottom:20px; border:1px solid #ccc; resize: none;"></textarea>
+            
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                
+                <button class="btn-cancelar-moderno" onclick="fecharModalRecusa()">
+                    Cancelar
+                </button>
+
+                <button type="button" id="btn-confirma-recusa-modal">
+                    <i class="fas fa-paper-plane"></i> Confirmar
+                </button>
+                
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../config.js"></script>
+    <script src="/app/js/driver_app.js"></script>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('service-worker.js', { scope: './' })
+                .then(reg => console.log('PWA Mobile registrado em /app/'))
+                .catch(err => console.error('Erro SW Mobile:', err));
+            });
+        }
+    </script>
+
+</body>
+</html>

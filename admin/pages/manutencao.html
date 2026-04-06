@@ -1,0 +1,399 @@
+<style>
+    /* Botões de ação pequenos para tabelas internas */
+    .btn-action-sm {
+        background: none; border: none; padding: 4px 6px;
+        cursor: pointer; font-size: 1rem; transition: transform 0.2s;
+    }
+    .btn-action-sm:hover { transform: scale(1.15); }
+    .icon-edit-item { color: #007bff; }
+    .icon-del-item { color: #dc3545; }
+    .icon-history-item { color: #20c997; }
+
+    /* Botão de Seleção Circular Verde (Catálogo e Fornecedor) */
+    .btn-check-success-rounded {
+        background: #28a745; color: white; border: none; border-radius: 50%;
+        width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
+        cursor: pointer; font-size: 0.9rem; transition: transform 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .btn-check-success-rounded:hover {
+        transform: scale(1.15); background: #218838;
+    }
+
+    /* Formatação Contábil para Totais Textuais */
+    .col-contabil {
+        text-align: right !important; 
+        font-family: 'Courier New', Courier, monospace;
+        font-weight: bold; color: var(--cor-primaria);
+    }
+
+    /* Correção de inputs para evitar cortes de texto */
+    .form-control-fix {
+        height: auto !important; min-height: 36px;
+        padding: 6px 10px; box-sizing: border-box; font-size: 0.85rem;
+    }
+
+    /* Tabela Editável de Itens */
+    .table-editable td { padding: 6px !important; vertical-align: middle; }
+    .table-editable input {
+        width: 100%; border: 1px solid #ced4da; border-radius: 4px;
+        padding: 6px 8px; font-size: 0.85rem; height: 34px;
+    }
+    .table-editable input:focus {
+        border-color: #80bdff; outline: none; box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+    }
+
+    /* Badges de Sistemas na Aba Geral */
+    .badge-sistema-os {
+        color: white; padding: 4px 10px; border-radius: 4px;
+        font-size: 0.75rem; font-weight: bold; display: inline-flex; align-items: center; margin: 2px;
+    }
+
+    /* Cápsulas de Categoria (Peça / Serviço) */
+    .capsula-cat {
+        padding: 4px 12px; border-radius: 12px; color: white; font-weight: bold;
+        font-size: 0.75rem; display: inline-block; text-align: center; min-width: 70px; cursor: pointer;
+    }
+    .capsula-peca { background-color: #6c757d; }
+    .capsula-servico { background-color: #17a2b8; }
+</style>
+
+<div class="card" style="height: 100%; display: flex; flex-direction: column; padding: 20px;">
+    
+    <div class="toolbar" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px; margin-bottom: 10px;">
+        <div id="container-filtros-manutencao" style="flex: 1; display: flex; flex-direction: column; gap: 8px;"></div>
+        <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end; min-width: 150px;">
+            <button class="btn-primary" onclick="window.abrirModalManutencao()">
+                <i class="fas fa-tools icon-left"></i> Nova O.S.
+            </button>
+            <button class="btn-add-filter" onclick="window.adicionarFiltroManutencao()" style="background: transparent; border: none; color: var(--cor-primaria); padding: 5px 0; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                <i class="fas fa-plus"></i> Adicionar Filtro
+            </button>
+        </div>
+    </div>
+
+    <div style="background: #f8f9fa; padding: 8px 12px; border: 1px solid #e9ecef; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: #666; margin-bottom: 10px;">
+        <span id="lbl-contagem-manutencoes">Aguardando dados...</span>
+        <span id="lbl-filtros-ativos-manutencao" style="font-style: italic; font-size: 0.8rem;"></span>
+    </div>
+
+    <div style="flex: 1; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; position: relative;">
+        <table class="table table-hover">
+            <thead style="position: sticky; top: 0; background: #fff; z-index: 1;">
+                <tr>
+                    <th>Data</th>
+                    <th>Placa</th>
+                    <th>Marca/Modelo</th>
+                    <th>Odômetro</th>
+                    <th>Tipo</th>
+                    <th>Fornecedores (P/S)</th>
+                    <th style="text-align: right;">Valor Total</th>
+                    <th style="width: 120px; text-align: center;">Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tbody-manutencoes"></tbody>
+        </table>
+        <div id="loading-manutencoes" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); display: none; justify-content: center; align-items: center; z-index: 10;">
+            <div style="text-align: center; color: var(--cor-primaria);"><i class="fas fa-spinner fa-spin" style="font-size: 2rem;"></i></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-manutencao" style="z-index: 1000;">
+        <div class="modal-box" style="width: 98%; max-width: 1200px; height: 90vh; display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <span id="titulo-modal-manutencao" style="font-size: 1.1rem; font-weight: bold; color: var(--cor-primaria);">Nova Ordem de Serviço</span>
+            </div>
+            
+            <div class="modal-tabs" style="display: flex; border-bottom: 1px solid #ddd; margin-bottom: 15px; gap: 20px; padding: 0 20px;">
+                <div id="tab-man-geral" onclick="window.alternarAbaManutencao('geral')" style="padding: 10px 5px; cursor: pointer; border-bottom: 3px solid var(--cor-primaria); color: var(--cor-primaria); font-weight: bold;">
+                    <i class="fas fa-file-alt"></i> Dados Gerais
+                </div>
+                <div id="tab-man-itens" onclick="window.alternarAbaManutencao('itens')" style="padding: 10px 5px; cursor: pointer; border-bottom: 3px solid transparent; color: #666;">
+                    <i class="fas fa-cogs"></i> Peças e Serviços
+                </div>
+                <div id="tab-man-local" onclick="window.alternarAbaManutencao('local')" style="padding: 10px 5px; cursor: pointer; border-bottom: 3px solid transparent; color: #666;">
+                    <i class="fas fa-map-marker-alt"></i> Local do Serviço
+                </div>
+                <div id="tab-man-obs" onclick="window.alternarAbaManutencao('obs')" style="padding: 10px 5px; cursor: pointer; border-bottom: 3px solid transparent; color: #666;">
+                    <i class="fas fa-comment-dots"></i> Observações Gerais
+                </div>
+            </div>
+
+            <form id="form-manutencao" style="flex: 1; display: flex; flex-direction: column;" novalidate>
+                <input type="hidden" id="man-id">
+                <div class="modal-body" style="padding: 0 20px 10px; flex: 1; overflow-y: auto;">
+                    
+                    <div id="content-man-geral" class="tab-pane-os">
+                        <div style="display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                            <div>
+                                <label class="lbl-form">Veículo (Placa) *</label>
+                                <select id="man-placa" class="form-control form-control-fix" required onchange="window.aoSelecionarPlacaManutencao()"></select>
+                            </div>
+                            <div>
+                                <label class="lbl-form">Data da Manutenção *</label>
+                                <input type="date" id="man-data" class="form-control form-control-fix" required>
+                            </div>
+                            <div>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <label class="lbl-form" style="margin: 0;">KM Atual (Painel) *</label>
+                                    <a href="#" onclick="window.puxarKmVeiculo()" style="font-size: 0.75rem; color: var(--cor-primaria); text-decoration: none;"><i class="fas fa-tachometer-alt"></i> Puxar Atual</a>
+                                </div>
+                                <input type="number" id="man-km" class="form-control form-control-fix" required>
+                            </div>
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <label class="lbl-form">Tipo de Manutenção *</label>
+                            <select id="man-tipo" class="form-control form-control-fix" required style="width: 32%;">
+                                <option value="Preventiva">Preventiva</option>
+                                <option value="Corretiva">Corretiva</option>
+                                <option value="Emergencial">Emergencial</option>
+                            </select>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                            <div style="background: #f8f9fa; padding: 12px; border: 1px solid #ced4da; border-radius: 4px;">
+                                <label class="lbl-form" style="font-weight: bold;">Sistemas Afetados</label>
+                                <select id="man-sistema-manual" class="form-control form-control-fix" onchange="window.adicionarSistemaManual()" style="margin-bottom: 10px;"></select>
+                                <div id="man-sistemas-badges" style="display: flex; flex-wrap: wrap; gap: 5px; min-height: 30px;">
+                                    <span class="text-muted" style="font-size: 0.8rem;">Nenhum sistema...</span>
+                                </div>
+                            </div>
+                            <div style="background: #f8f9fa; padding: 12px; border: 1px solid #ced4da; border-radius: 4px;">
+                                <label class="lbl-form" style="font-weight: bold;">Subsistemas Afetados</label>
+                                <select id="man-subsistema-manual" class="form-control form-control-fix" onchange="window.adicionarSubsistemaManual()" style="margin-bottom: 10px;">
+                                    <option value="">Selecione os sistemas primeiro...</option>
+                                </select>
+                                <div id="man-subsistemas-badges" style="display: flex; flex-wrap: wrap; gap: 5px; min-height: 30px;">
+                                    <span class="text-muted" style="font-size: 0.8rem;">Nenhum subsistema...</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: none;">
+                            <input type="text" id="man-marca">
+                            <input type="text" id="man-modelo">
+                        </div>
+                    </div>
+
+                    <div id="content-man-itens" class="tab-pane-os" style="display: none;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; background: #343a40; color: white; padding: 12px 20px; border-radius: 6px; margin-bottom: 15px;">
+                            <div style="font-size: 1rem;">
+                                <span style="color: #adb5bd;">Quantidade de Itens:</span>
+                                <strong id="lbl-qtd-itens" style="margin-left: 5px;">0</strong>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 20px;">
+                                <div style="text-align: right; font-size: 1.1rem;">
+                                    <span style="color: #adb5bd;">Total da O.S.:</span>
+                                    <strong id="man-valor-total-display" style="margin-left: 5px; color: #28a745;">R$ 0,00</strong>
+                                </div>
+                                <button type="button" class="btn-primary" onclick="window.abrirModalBuscaCatalogo()" style="background: #17a2b8; border: none; font-size: 0.85rem; padding: 6px 15px; margin-left: 10px;">
+                                    <i class="fas fa-search"></i> Buscar no Catálogo Base
+                                </button>
+                            </div>
+                        </div>
+
+                        <div style="border: 1px solid #ddd; border-radius: 4px; overflow-y: auto; max-height: 55vh;">
+                            <table class="table table-editable" style="font-size: 0.85rem; margin: 0; min-width: 1050px;">
+                                <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 1; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+                                    <tr>
+                                        <th style="width: 100px; text-align: center;">Categoria</th>
+                                        <th>Descrição do Item</th>
+                                        <th style="width: 160px;">Marca (Opcional)</th>
+                                        <th style="width: 80px; text-align: center;">Qtd</th>
+                                        <th style="width: 120px; text-align: right;">R$ Unit.</th>
+                                        <th>Observação (Opcional)</th>
+                                        <th style="width: 120px; text-align: right;">R$ Total</th>
+                                        <th style="width: 100px; text-align: center;">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-itens-manutencao">
+                                    <tr><td colspan="8" style="text-align: center; padding: 25px; color: #999;">Nenhum item ou serviço adicionado. Clique em "Buscar no Catálogo Base".</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="content-man-local" class="tab-pane-os" style="display: none;">
+                        <div style="display: flex; flex-direction: column; gap: 20px;">
+                            <div class="card" style="padding: 20px; background: #fcfcfc; border: 1px solid #eee;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <div>
+                                        <label class="lbl-form" style="font-weight: bold; margin:0;"><i class="fas fa-box"></i> Fornecedor de Peças</label>
+                                        <p style="margin: 0; font-size: 0.8rem; color: #666;">Onde as peças foram compradas.</p>
+                                    </div>
+                                    <button type="button" class="btn-primary" style="padding: 6px 15px; font-size: 0.85rem;" onclick="window.abrirModalBuscaFornecedor('Peça')">
+                                        <i class="fas fa-search"></i> Buscar
+                                    </button>
+                                </div>
+                                <div id="div-forn-peca" style="min-height: 45px; border: 1px dashed #ccc; display: flex; align-items: center; padding: 10px; border-radius: 4px; background: #fff;">
+                                    <span class="text-muted">Nenhum fornecedor de peças selecionado</span>
+                                </div>
+                                <div id="alert-forn-pecas" style="background: #e3f2fd; border: 1px solid #90caf9; padding: 10px 15px; border-radius: 4px; display: none; align-items: center; justify-content: space-between;">
+                                    <div>
+                                        <i class="fas fa-check-circle" style="color: #0d47a1; font-size: 1.2rem; vertical-align: middle;"></i>
+                                        <strong id="txt-forn-pecas-selecionado" style="color: #0d47a1; font-size: 0.95rem; vertical-align: middle; margin-left: 5px;"></strong>
+                                    </div>
+                                    <button type="button" onclick="window.limparFornecedor('pecas')" style="background: none; border: none; color: #dc3545; cursor: pointer; font-size: 1.1rem;" title="Remover"><i class="fas fa-times"></i></button>
+                                </div>
+                                <input type="hidden" id="man-fornecedor-pecas-id">
+                            </div>
+
+                            <div class="card" style="padding: 20px; background: #fcfcfc; border: 1px solid #eee;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <div>
+                                        <label class="lbl-form" style="font-weight: bold; margin:0;"><i class="fas fa-wrench"></i> Oficina Responsável</label>
+                                        <p style="margin: 0; font-size: 0.8rem; color: #666;">Quem executou o serviço / mão de obra.</p>
+                                    </div>
+                                    <button type="button" class="btn-primary" style="padding: 6px 15px; font-size: 0.85rem; background: #28a745;" onclick="window.abrirModalBuscaFornecedor('Serviço')">
+                                        <i class="fas fa-search"></i> Buscar
+                                    </button>
+                                </div>
+                                <div id="div-forn-serv" style="min-height: 45px; border: 1px dashed #ccc; display: flex; align-items: center; padding: 10px; border-radius: 4px; background: #fff;">
+                                    <span class="text-muted">Nenhuma oficina de serviços selecionada</span>
+                                </div>
+                                <div id="alert-forn-servicos" style="background: #d4edda; border: 1px solid #c3e6cb; padding: 10px 15px; border-radius: 4px; display: none; align-items: center; justify-content: space-between;">
+                                    <div>
+                                        <i class="fas fa-check-circle" style="color: #155724; font-size: 1.2rem; vertical-align: middle;"></i>
+                                        <strong id="txt-forn-servicos-selecionado" style="color: #155724; font-size: 0.95rem; vertical-align: middle; margin-left: 5px;"></strong>
+                                    </div>
+                                    <button type="button" onclick="window.limparFornecedor('servicos')" style="background: none; border: none; color: #dc3545; cursor: pointer; font-size: 1.1rem;" title="Remover"><i class="fas fa-times"></i></button>
+                                </div>
+                                <input type="hidden" id="man-fornecedor-servicos-id">
+                            </div>
+                        </div>
+                        <div style="margin-top: 15px; text-align: center;">
+                            <button type="button" class="btn-cancel" onclick="window.sugerirFornecedorHistorico()" style="color: var(--cor-primaria); border-color: var(--cor-primaria);">
+                                <i class="fas fa-magic icon-left"></i> Sugerir Locais pelo Histórico
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="content-man-obs" class="tab-pane-os" style="display: none;">
+                        <label class="lbl-form">Relatório Técnico / Observações Gerais da O.S.</label>
+                        <textarea id="man-obs" class="form-control form-control-fix" style="height: 250px; resize: vertical;" placeholder="Descreva aqui detalhes gerais da manutenção..."></textarea>
+                    </div>
+                </div>
+
+                <div class="modal-footer" style="padding: 15px 20px; background: #f8f9fa; border-top: 1px solid #ddd; display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" class="btn-cancel" onclick="window.fecharModalManutencao()">Cancelar</button>
+                    <button type="submit" class="btn-primary" id="btn-salvar-manutencao" style="padding: 10px 25px;">Salvar Ordem de Serviço</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-busca-fornecedor" style="z-index: 1050;">
+        <div class="modal-box" style="width: 1000px; height: 90vh; max-height: 900px; display: flex; flex-direction: column;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <span id="titulo-modal-forn" style="font-size: 1.1rem; font-weight: bold; color: var(--cor-primaria);">Buscar Fornecedor</span>
+                <button type="button" onclick="window.fecharModalBuscaFornecedor()" style="background:none; border:none; font-size: 1.2rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 15px 20px; overflow-y: auto; flex: 1;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <span style="font-weight: bold; color: #555;">Filtros de Busca</span>
+                    <button type="button" onclick="window.adicionarFiltroBuscaFornModal()" style="background: transparent; border: none; color: var(--cor-primaria); font-size: 0.85rem; cursor: pointer;">
+                        <i class="fas fa-plus"></i> Novo Filtro
+                    </button>
+                </div>
+                <div id="container-filtros-busca-forn" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px;"></div>
+                <div style="border: 1px solid #ddd; border-radius: 4px; overflow-y: auto; flex: 1;">
+                    <table class="table table-hover" style="font-size: 0.85rem; margin: 0;">
+                        <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 1;">
+                            <tr>
+                                <th>Nome / Razão Social</th>
+                                <th style="width: 180px;">CNPJ/CPF</th>
+                                <th>Sistemas Atendidos / Categoria</th>
+                                <th style="width: 80px; text-align: center;">Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-modal-busca-forn"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-busca-catalogo" style="z-index: 1050;">
+        <div class="modal-box" style="width: 1000px; height: 90vh; max-height: 900px; display: flex; flex-direction: column;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 1.1rem; font-weight: bold; color: var(--cor-primaria);"><i class="fas fa-book"></i> Catálogo Base</span>
+                <button type="button" onclick="window.fecharModalBuscaCatalogo()" style="background:none; border:none; font-size: 1.2rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 15px 20px; overflow-y: auto; flex: 1;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <span style="font-weight: bold; color: #555;">Filtros de Busca</span>
+                    <button type="button" onclick="window.adicionarFiltroBuscaCatModal()" style="background: transparent; border: none; color: var(--cor-primaria); font-size: 0.85rem; cursor: pointer;">
+                        <i class="fas fa-plus"></i> Novo Filtro
+                    </button>
+                </div>
+                <div id="container-filtros-busca-cat" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px;"></div>
+                <div style="border: 1px solid #ddd; border-radius: 4px; overflow-y: auto; flex: 1;">
+                    <table class="table table-hover" style="font-size: 0.85rem; margin: 0;">
+                        <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 1;">
+                            <tr>
+                                <th style="width: 100px;">Cód.</th>
+                                <th>Descrição</th>
+                                <th style="width: 100px; text-align: center;">Categoria</th>
+                                <th>Sistema / Subsistema</th>
+                                <th style="width: 80px; text-align: center;">Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-modal-busca-cat"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-historico-item" style="z-index: 1100;">
+        <div class="modal-box" style="width: 850px; max-height: 80vh; display: flex; flex-direction: column;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 1.1rem; font-weight: bold; color: var(--cor-primaria);">
+                    <i class="fas fa-history"></i> Histórico do Item: <span id="txt-hist-item-desc" style="color: #555;"></span>
+                </span>
+                <button type="button" onclick="window.fecharModalHistoricoItem()" style="background:none; border:none; font-size: 1.2rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 15px 20px; overflow-y: auto; flex: 1;">
+                <div style="border: 1px solid #ddd; border-radius: 4px; overflow-y: auto; max-height: 400px;">
+                    <table class="table table-hover" style="font-size: 0.85rem; margin: 0;">
+                        <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 1;">
+                            <tr>
+                                <th>Data</th>
+                                <th>Odômetro</th>
+                                <th>Marca Aplicada</th>
+                                <th style="text-align: center;">Qtd</th>
+                                <th style="text-align: right;">R$ Unit.</th>
+                                <th>Oficina / Fornecedor</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-modal-historico-item"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-confirmar-fechar-os" style="z-index: 1200;">
+        <div class="modal-box" style="width: 400px; text-align: center; padding: 20px;">
+            <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: #ffc107; margin-bottom: 15px;"></i>
+            <h4 style="margin-bottom: 10px;">Alterações não salvas!</h4>
+            <p style="color: #666; margin-bottom: 20px;">Você fez alterações nesta Ordem de Serviço que ainda não foram salvas. Deseja sair e perder essas alterações?</p>
+            <div style="display: flex; justify-content: center; gap: 10px;">
+                <button type="button" class="btn-cancel" onclick="window.cancelarFechamentoOS()">Não, continuar editando</button>
+                <button type="button" class="btn-primary" style="background: #dc3545; border: none;" onclick="window.forcarFechamentoOS()">Sim, sair sem salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-confirmar-exclusao-os" style="z-index: 1200;">
+        <div class="modal-box" style="width: 450px; text-align: center; padding: 20px;">
+            <i class="fas fa-trash-alt" style="font-size: 3rem; color: #dc3545; margin-bottom: 15px;"></i>
+            <h4 style="margin-bottom: 10px;">Excluir Ordem de Serviço</h4>
+            <p style="color: #666; margin-bottom: 5px;">Tem certeza que deseja excluir permanentemente esta O.S.?</p>
+            <strong id="excluir-detalhe-os" style="display: block; margin-bottom: 20px; color: #333;"></strong>
+            <input type="hidden" id="excluir-os-id">
+            <div style="display: flex; justify-content: center; gap: 10px;">
+                <button type="button" class="btn-cancel" onclick="document.getElementById('modal-confirmar-exclusao-os').classList.remove('active')">Cancelar</button>
+                <button type="button" id="btn-confirmar-delete-os" class="btn-primary" style="background: #dc3545; border: none;" onclick="window.executarExclusaoDefinitivaOS()">Sim, Excluir</button>
+            </div>
+        </div>
+    </div>
+
+</div>
