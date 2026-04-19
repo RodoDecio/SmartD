@@ -309,13 +309,13 @@ window.aplicarFiltro = function() {
 // --- HISTÓRICO ---
 async function carregarHistorico() {
     try {
+        // Removido 'modelos_checklist(titulo)' para evitar erro de Cache/Relacionamento
         const { data, error } = await clienteSupabase
             .from('inspecoes')
             .select(`
-                id, numero_controle, data_abertura, status, responsavel_atual_id, km_atual,
+                id, numero_controle, data_abertura, status, responsavel_atual_id, km_atual, modelo_id,
                 veiculos(placa, modelo, marca),
-                perfis!responsavel_atual_id ( nome_completo ),
-                modelos_checklist ( titulo )
+                perfis!responsavel_atual_id ( nome_completo )
             `)
             .eq('motorista_id', usuarioAtual.id)
             .order('data_abertura', { ascending: false })
@@ -325,12 +325,18 @@ async function carregarHistorico() {
         
         listaInspecoesCache = data || [];
         
-        // [CORREÇÃO] Chama esta função para remover o "Carregando..." 
-        // e popular as opções (Todos, Pendente, Concluído) imediatamente.
-        configurarFiltros(); 
+        // Injeta o nome do modelo a partir do cache local
+        listaInspecoesCache.forEach(ins => {
+            const mod = modelosCache.find(m => m.id === ins.modelo_id);
+            ins.modelos_checklist = { titulo: mod ? mod.titulo : 'Checklist' };
+        });
         
     } catch (error) {
         console.error("Erro histórico:", error);
+        listaInspecoesCache = []; // Previne erros no filter
+    } finally {
+        // CRÍTICO: Movemos a chamada para o finally. Se falhar, retira o spinner infinito da tela.
+        configurarFiltros(); 
     }
 }
 
@@ -737,8 +743,15 @@ async function carregarVeiculos() {
 }
 
 async function carregarModelos() {
-    const { data } = await clienteSupabase.from('modelos_checklist').select('*').eq('ativo', true);
-    modelosCache = data || [];
+    try {
+        // Envolvido em Try/Catch para evitar que uma falha aqui quebre toda a inicialização (Loop infinito do spinner)
+        const { data, error } = await clienteSupabase.from('modelos_checklist').select('*').eq('ativo', true);
+        if (error) throw error;
+        modelosCache = data || [];
+    } catch (e) {
+        console.error("Erro ao carregar modelos:", e);
+        modelosCache = [];
+    }
 }
 
 window.detectarModeloChecklist = async function() {
@@ -754,7 +767,6 @@ window.detectarModeloChecklist = async function() {
     }
 
     try {
-        // Busca dados do veículo
         const { data: vAtual, error: errV } = await clienteSupabase
             .from('veiculos')
             .select('id, km_atual, marca, modelo')
@@ -763,27 +775,35 @@ window.detectarModeloChecklist = async function() {
 
         if (errV) throw errV;
 
-        // [LOGICA MULTIPLO]: Busca todos os vínculos daquela placa
-        const { data: vinculos, error: errVinculo } = await clienteSupabase
+        // Removido o join direto do supabase para evitar erro de foreign key
+        const { data: vinculosRaw, error: errVinculo } = await clienteSupabase
             .from('checklist_veiculos')
-            .select('modelo_id, modelos_checklist(titulo)')
+            .select('modelo_id')
             .eq('veiculo_id', veiculoId);
 
+        if (errVinculo) throw errVinculo;
+
+        // Mapeia o nome do modelo localmente usando o cache
+        const vinculos = (vinculosRaw || []).map(v => {
+            const mod = modelosCache.find(m => m.id === v.modelo_id);
+            return {
+                modelo_id: v.modelo_id,
+                modelos_checklist: { titulo: mod ? mod.titulo : 'Checklist' }
+            };
+        });
+
         if (vinculos && vinculos.length > 0) {
-            // Atualiza dados básicos do veículo na tela
             document.getElementById('lbl-marca').innerText = vAtual.marca || 'MARCA N/A';
             document.getElementById('lbl-modelo').innerText = vAtual.modelo || 'MODELO N/A';
             box.style.display = 'block';
 
             if (vinculos.length === 1) {
-                // Cenário Normal: Apenas 1 modelo
                 modeloSelecionadoId = vinculos[0].modelo_id;
                 containerDuplicado.style.display = 'none';
                 lblUnico.style.display = 'block';
                 document.getElementById('lbl-checklist-nome').innerText = vinculos[0].modelos_checklist.titulo;
             } else {
-                // Cenário Duplicado: Listar para o motorista escolher
-                modeloSelecionadoId = null; // Reseta para forçar a escolha
+                modeloSelecionadoId = null;
                 lblUnico.style.display = 'none';
                 containerDuplicado.style.display = 'block';
                 
@@ -798,7 +818,6 @@ window.detectarModeloChecklist = async function() {
                 });
             }
 
-            // Busca última inspeção para histórico visual
             const { data: lastInsp } = await clienteSupabase
                 .from('inspecoes')
                 .select('data_abertura')
@@ -819,7 +838,7 @@ window.detectarModeloChecklist = async function() {
 
         } else {
             showModal('Este veículo não possui nenhum checklist vinculado.', 'Aviso');
-            selVeiculo.value = "";
+            // REMOVIDO: selVeiculo.value = ""; (evita reiniciar o evento de validação e causar loop visual)
             box.style.display = 'none';
         }
     } catch (err) { 

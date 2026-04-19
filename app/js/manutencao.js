@@ -156,20 +156,16 @@ window.carregarTarefasOficina = async function() {
         </div>`;
 
     try {
-        // QUERY SEGURA
-        // Removemos aliases complexos que podem causar conflito se o nome da FK não for padrão
-        // Se der erro de "relation not found", verifique se 'motorista_id' é o nome exato da coluna na tabela inspecoes
+        // Removido 'modelos_checklist(titulo)' da query. Elimina o erro de "Could not find a relationship".
         let query = clienteSupabase.from('inspecoes')
             .select(`
                 *,
                 veiculos!inner(placa, modelo, unidade_id, unidades(nome)),
                 motorista:perfis!motorista_id(nome_completo),
-                responsavel:perfis!responsavel_atual_id(nome_completo),
-                modelos_checklist(titulo)
+                responsavel:perfis!responsavel_atual_id(nome_completo)
             `)
             .order('data_abertura', { ascending: true });
 
-        // Filtra por Unidade
         if (unidadeSel !== 'TODAS') {
             query = query.eq('veiculos.unidade_id', unidadeSel);
         } else if (perfilManutentor?.listaUnidades) {
@@ -181,12 +177,10 @@ window.carregarTarefasOficina = async function() {
 
         tarefasCache = data || [];
         
-        // Remove cancelados da visualização
         const tarefasPendentes = tarefasCache.filter(t => t.status !== 'cancelado');
         
         renderizarCardsOficina(tarefasPendentes.length > 0 ? tarefasPendentes : tarefasCache);
         
-        // Reseta inputs
         const selTipo = document.getElementById('sel-filtro-tipo');
         if(selTipo) selTipo.value = "";
         
