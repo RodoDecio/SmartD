@@ -50,11 +50,12 @@
             height: 80px;
             display: flex;
             align-items: center;
-            justify-content: space-between; /* Logo na esq, botão na dir */
+            justify-content: space-between;
             padding: 0 15px;
-            background-color: #ffffff;
-            border-bottom: 3px solid #004d99;
+            background-color: #003366; /* Tom de azul igual ao da sidebar */
+            border-bottom: 2px solid #ffffff; /* Borda inferior branca conforme solicitado */
             position: relative;
+            z-index: 1001;
         }
 
         /* Controle das Imagens da Logo */
@@ -65,11 +66,20 @@
         .btn-toggle-sidebar {
             background: none;
             border: none;
-            color: #003366;
+            color: #ffffff; /* Alterado para branco para contraste com o novo fundo */
             font-size: 1.4rem;
             cursor: pointer;
             padding: 5px;
             z-index: 1002;
+            transition: opacity 0.2s;
+        }
+
+        .btn-toggle-sidebar:hover {
+            opacity: 0.8;
+        }
+
+        .logo-full, .logo-icon {
+            filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.2)); /* Melhora visibilidade da logo prateada no azul */
         }
 
         /* Menu Lista */

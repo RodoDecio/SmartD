@@ -615,6 +615,16 @@
 
             <div id="step-itens" style="display:none;">
                 <div id="container-perguntas"></div>
+                
+                <div class="clean-card" style="margin-top: 20px; border-left: 5px solid var(--cor-primary);">
+                    <label style="font-size: 0.9rem; font-weight: bold; color: #333; margin-bottom: 8px; display: block;">
+                        <i class="fas fa-comment-dots" style="color: var(--cor-primary);"></i> Observações Gerais
+                    </label>
+                    <textarea id="inp-obs-geral" class="form-control" rows="2" 
+                        placeholder="Algo mais a informar sobre o veículo? (Opcional)" 
+                        style="background:#f8f9fa; border:1px solid #e9ecef; resize: none; white-space: pre-wrap !important; height: auto !important; min-height: 80px; overflow: hidden;"
+                        oninput="ajustarAlturaObs(this)"></textarea>
+                </div>
             </div>
         </div>
 

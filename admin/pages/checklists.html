@@ -222,6 +222,27 @@
     </div>
 </div>
 
+<div class="modal-overlay" id="modal-preview-checklist-pdf" style="z-index: 5000;">
+    <div class="modal-box" style="width: 98%; max-width: 1000px; height: 95vh; display: flex; flex-direction: column; padding: 0; border-radius: 8px; overflow: hidden; background: white;">
+        <div class="modal-header" style="background: #003399; color: white; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; flex-shrink: 0;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-print"></i>
+                <span style="font-weight: bold; font-size: 1.1rem;">Impressão de Formulário de Checklist</span>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <a id="btn-download-checklist-pdf" href="#" download="Checklist.pdf" style="color: white; text-decoration: none; font-size: 0.85rem; font-weight: bold; background: #198754; padding: 8px 15px; border-radius: 4px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: background 0.2s;">
+                    <i class="fas fa-download"></i> Baixar PDF
+                </a>
+                <button onclick="window.fecharPreviewChecklistPDF()" style="background:none; border:none; color:white; font-size: 1.8rem; cursor:pointer;" title="Fechar">&times;</button>
+            </div>
+        </div>
+        <div style="flex: 1; background: #525659; position: relative;">
+            <iframe id="iframe-checklist-pdf" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+        </div>
+    </div>
+</div>
+
 <style>
     /* Estilos Locais */
     .tabs-header { display: flex; border-bottom: 1px solid #ddd; background: #fff; padding: 0 20px; }

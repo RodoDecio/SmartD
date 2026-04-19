@@ -1,13 +1,15 @@
 <div class="card" style="height: 100%; display: flex; flex-direction: column;">
     
-    <div class="toolbar">
-        <div id="container-filtros-checklist" class="filter-container"></div>
+    <div class="toolbar" style="display: flex; align-items: flex-start; justify-content: space-between;">
+        <div id="container-filtros-checklist" class="filter-container" style="display: flex; flex-direction: column; gap: 10px; flex: 1;"></div>
 
-        <div style="display: flex; gap: 10px; align-items: center;">
+        <div style="display: flex; gap: 10px; align-items: flex-start; margin-left: 20px;">
             <button class="btn-add-filter" onclick="adicionarFiltroChecklist()">
                 <i class="fas fa-filter"></i> + Adicionar Filtro
             </button>
-
+            <button class="btn-primary" onclick="abrirModalChecklistImpresso()" style="background-color: #0056b3; color: white; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-file-upload"></i> Inserir Checklist
+            </button>
         </div>
     </div>
 
@@ -144,6 +146,117 @@
             </button>
             <button class="btn-primary" onclick="executarFinalizacaoV2()" style="background-color: #198754;">
                 Sim, Finalizar
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .tab-btn-imp { padding: 12px 25px; border: none; background: transparent; font-weight: 700; color: #6c757d; border-bottom: 3px solid transparent; cursor: pointer; transition: all 0.2s; font-size: 0.95rem; flex: 1; text-align: center; }
+    .tab-btn-imp:hover { color: #0056b3; background-color: #f8f9fa; }
+    .tab-btn-imp.active { color: #0056b3; border-bottom-color: #0056b3; background-color: #f0f4f8; }
+    .aba-content-imp { display: none; animation: fadeIn 0.3s; height: 100%; }
+    .aba-content-imp.active { display: flex; flex-direction: column; }
+    .card-pergunta-imp { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); transition: all 0.2s; border-left: 4px solid #0056b3; }
+    .card-pergunta-imp:hover { box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
+    #modal-checklist-impresso .form-control {
+        height: auto !important; 
+        min-height: 42px;
+        line-height: 1.5;
+    }
+</style>
+
+<div class="modal-overlay" id="modal-checklist-impresso" style="z-index: 10000; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.6);">
+    <div class="modal-box" style="width: 900px; background: white; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+        
+        <div class="modal-header" style="background: #0056b3; color: white; padding: 15px 20px; font-weight: bold; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 1.1rem;"><i class="fas fa-file-upload"></i> Registrar Checklist Manual/Impresso</span>
+            <button onclick="fecharModalChecklistImpresso()" style="background:none; border:none; color:white; cursor:pointer; font-size:1.4rem;"><i class="fas fa-times"></i></button>
+        </div>
+
+        <div style="display: flex; border-bottom: 2px solid #dee2e6; background: #fff;">
+            <button id="btn-aba-imp-dados" class="tab-btn-imp active" onclick="alternarAbaImpresso('dados')"><i class="fas fa-info-circle"></i> 1. Dados Iniciais</button>
+            <button id="btn-aba-imp-itens" class="tab-btn-imp" onclick="alternarAbaImpresso('itens')"><i class="fas fa-list-check"></i> 2. Itens do Checklist</button>
+            <button id="btn-aba-imp-arquivo" class="tab-btn-imp" onclick="alternarAbaImpresso('arquivo')"><i class="fas fa-paperclip"></i> 3. Arquivo Comprobatório</button>
+        </div>
+        
+        <div class="modal-body" style="padding: 25px; height: 60vh; overflow-y: auto; background: #f8f9fa;">
+            
+            <div id="aba-imp-dados" class="aba-content-imp active">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; flex: 1;">
+                    <div>
+                        <label style="font-weight: bold; font-size: 0.85rem; color:#333;">Veículo (Placa)</label>
+                        <select id="imp-veiculo" class="form-control" style="width: 100%; border:1px solid #ccc; padding:10px; border-radius:4px;" onchange="carregarModelosPorVeiculo(this.value)"></select>
+                    </div>
+                    <div>
+                        <label style="font-weight: bold; font-size: 0.85rem; color:#333;">Motorista</label>
+                        <select id="imp-motorista" class="form-control" style="width: 100%; border:1px solid #ccc; padding:10px; border-radius:4px;"></select>
+                    </div>
+                    <div>
+                        <label style="font-weight: bold; font-size: 0.85rem; color:#333;">Modelo do Checklist</label>
+                        <select id="imp-modelo" class="form-control" style="width: 100%; border:1px solid #0056b3; padding:10px; border-radius:4px; background: #f0f4f8;" onchange="carregarItensChecklistImpresso(this.value)"></select>
+                    </div>
+                    <div>
+                        <label style="font-weight: bold; font-size: 0.85rem; color:#333;">Data e Hora (Anotada no Papel)</label>
+                        <input type="datetime-local" id="imp-data" class="form-control" style="width: 100%; border:1px solid #ccc; padding:10px; border-radius:4px;">
+                    </div>
+                    <div style="grid-column: 1 / -1;">
+                        <label style="font-weight: bold; font-size: 0.85rem; color:#333;">Observações Extras</label>
+                        <textarea id="imp-obs" class="form-control" rows="3" style="width: 100%; border:1px solid #ccc; padding:10px; border-radius:4px;" placeholder="Descreva se houve alguma falha anotada no documento..."></textarea>
+                    </div>
+                </div>
+                <div style="text-align: right; margin-top: 20px;">
+                    <button onclick="alternarAbaImpresso('itens')" style="background: #0056b3; color: white; padding: 10px 20px; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">Avançar para Itens <i class="fas fa-arrow-right"></i></button>
+                </div>
+            </div>
+
+            <div id="aba-imp-itens" class="aba-content-imp">
+                <div id="imp-itens-container" style="flex: 1;">
+                    <div class="text-center p-4 text-muted"><i class="fas fa-hand-point-left fa-2x mb-2"></i><br>Selecione um veículo e um modelo de checklist na aba anterior.</div>
+                </div>
+                <div style="text-align: right; margin-top: 20px;">
+                    <button onclick="alternarAbaImpresso('arquivo')" style="background: #0056b3; color: white; padding: 10px 20px; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">Avançar para Anexo <i class="fas fa-arrow-right"></i></button>
+                </div>
+            </div>
+
+            <div id="aba-imp-arquivo" class="aba-content-imp">
+                <div style="flex: 1;">
+                    <div style="background: #fff3cd; color: #856404; padding: 15px; border-radius: 5px; font-size: 0.95rem; border-left: 5px solid #ffeeba; margin-bottom: 20px;">
+                        <i class="fas fa-info-circle"></i> O anexo do documento físico assinado pelo motorista é <b>obrigatório</b> para fins de auditoria.
+                    </div>
+                    <div>
+                        <label style="font-weight: bold; font-size: 0.95rem; color:#dc3545; display: block; margin-bottom: 8px;">Arquivo Comprobatório (Foto ou PDF) *</label>
+                        <input type="file" id="imp-arquivo" class="form-control" accept="image/*,.pdf" style="width: 100%; border:2px dashed #ccc; padding:30px 20px; border-radius:8px; background:#fff; text-align: center; cursor: pointer;">
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        
+        <div class="modal-footer" style="padding: 15px 25px; border-top: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; background: #fff;">
+            <button onclick="fecharModalChecklistImpresso()" style="background:#e9ecef; color:#333; padding: 10px 20px; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">Cancelar</button>
+            <button id="btn-salvar-impresso" onclick="salvarChecklistImpresso()" style="background: #198754; color: white; padding: 12px 25px; border:none; border-radius:4px; cursor:pointer; font-weight:bold; box-shadow:0 4px 6px rgba(25,135,84,0.3); font-size: 1.05rem;">
+                <i class="fas fa-save"></i> Salvar Checklist
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-confirma-descarte-imp" style="z-index: 10005; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); position: fixed; top: 0; left: 0; width: 100%; height: 100%;">
+    <div class="modal-box" style="width: 400px; text-align: center; padding: 25px; background: white; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);">
+        <div style="font-size: 3rem; color: #dc3545; margin-bottom: 15px;">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <h3 style="margin-bottom: 10px; color: #333;">Descartar Alterações?</h3>
+        <p style="color: #666; margin-bottom: 25px; line-height: 1.5;">
+            Você possui dados preenchidos que não foram salvos.<br>Se fechar agora, tudo será perdido.
+        </p>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button onclick="document.getElementById('modal-confirma-descarte-imp').style.display='none';" style="background:#e9ecef; color:#333; padding: 10px 20px; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">
+                Voltar e Editar
+            </button>
+            <button onclick="confirmarDescarteImpresso()" style="background-color: #dc3545; color: white; padding: 10px 20px; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">
+                Sim, Descartar
             </button>
         </div>
     </div>

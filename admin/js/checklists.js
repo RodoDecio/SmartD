@@ -81,6 +81,9 @@ async function listarModelos() {
                     <button class="action-btn" onclick="visualizarChecklist('${m.id}')" title="Visualizar">
                         <i class="fas fa-eye" style="color: #003399;"></i>
                     </button>
+                    <button class="action-btn" onclick="window.gerarPDFChecklistParaImpressao('${m.id}')" title="Imprimir para preenchimento manual">
+                        <i class="fas fa-print" style="color: #555;"></i>
+                    </button>
                     <button class="action-btn" onclick="abrirModalLogs('${m.id}')" title="Histórico">
                         <i class="fas fa-history"></i>
                     </button>
@@ -1073,3 +1076,212 @@ function atualizarInterfaceOpcoes() {
         selectNok.value = valorAtual;
     }
 }
+
+window.gerarPDFChecklistParaImpressao = async function(modeloId) {
+    const modelo = listaModelos.find(x => x.id == modeloId);
+    if (!modelo) return;
+
+    mostrarToast("Preparando documento...", "info");
+
+    try {
+        const { data: categorias } = await clienteSupabase.from('categorias_checklist').select('*').eq('modelo_id', modeloId).order('ordem');
+        const { data: itens } = await clienteSupabase.from('itens_checklist').select('*').eq('modelo_id', modeloId).order('ordem');
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('p', 'mm', 'a4');
+        const dataGeracao = new Date().toLocaleDateString('pt-BR');
+
+        // --- CONFIGURAÇÃO DE LAYOUT BLINDADA ---
+        const marginX = 14;
+        const colCheckX = 105;   // Início blindado das opções/checkboxes
+        const colObsX = 135;     // Início da linha de observação
+        const pageWidth = 210;
+        const maxRight = 196;    // Fim da margem direita
+        
+        // Limita o texto para não encavalar nos botões
+        const textMaxWidth = 85; 
+
+        const lineSpacing = 4.5; // Margem menor entre quebra de linhas da MESMA pergunta
+        const itemPadding = 7;   // Margem padrão DEPOIS de cada item
+
+        const desenharCabecalho = () => {
+            doc.setFillColor(242, 242, 242).rect(0, 0, 60, 25, 'F');
+            doc.setFillColor(0, 51, 153).rect(60, 0, 150, 25, 'F');
+            try { doc.addImage('icons/Logo-TRR.png', 'PNG', 10, 5, 40, 15); } catch(e) {}
+            doc.setTextColor(255).setFontSize(14).setFont(undefined, 'bold').text("FORMULÁRIO DE CHECKLIST", 65, 12);
+            doc.setFontSize(9).setFont(undefined, 'normal').text(`Modelo: ${modelo.titulo}`, 65, 18);
+            doc.setFontSize(7).setTextColor(220).text(`Emitido em: ${dataGeracao} | Documento para preenchimento manual`, 65, 22);
+
+            doc.setTextColor(0);
+            doc.setDrawColor(200);
+            doc.setFontSize(9).setFont(undefined, 'bold');
+            doc.text("PLACA:", marginX, 35); doc.line(28, 36, 60, 36);
+            doc.text("MOTORISTA:", 65, 35); doc.line(87, 36, 140, 36);
+            doc.text("DATA:", 145, 35); doc.line(158, 36, 196, 36);
+
+            // Legenda discreta sobre o NOK
+            doc.setFontSize(6).setTextColor(150).setFont(undefined, 'normal').text("* Opção que configura Não Conformidade (NOK)", 145, 40);
+        };
+
+        desenharCabecalho();
+        let yPos = 48;
+
+        categorias.forEach(cat => {
+            const itensDaCat = itens.filter(i => String(i.categoria_id) === String(cat.id));
+            if (itensDaCat.length === 0) return;
+
+            // Salto de página preventivo
+            if (yPos > 260) { doc.addPage(); desenharCabecalho(); yPos = 48; }
+
+            // Faixa da Categoria
+            doc.setFillColor(230, 235, 245);
+            doc.rect(marginX, yPos, 182, 7, 'F');
+            doc.setTextColor(0, 51, 153);
+            doc.setFontSize(9).setFont(undefined, 'bold').text(cat.nome.toUpperCase(), marginX + 2, yPos + 5);
+
+            // Labels Fixas
+            doc.setTextColor(150);
+            doc.setFontSize(6).setFont(undefined, 'normal');
+            doc.text("CONFORME?", colCheckX, yPos + 5);
+            doc.text("OBSERVAÇÃO / AVARIAS", colObsX, yPos + 5);
+
+            // Espaçamento entre Categoria e 1º item
+            yPos += 14; 
+
+            itensDaCat.forEach(item => {
+                const isSelecao = item.tipo_resposta === 'selecao' && item.opcoes_resposta && item.opcoes_resposta.length > 0;
+
+                // CORREÇÃO MANTIDA: Define a fonte ANTES de calcular a quebra de texto
+                doc.setFontSize(8.5).setFont(undefined, 'normal');
+                const splitPergunta = doc.splitTextToSize(item.pergunta, textMaxWidth);
+                
+                const textHeight = (splitPergunta.length - 1) * lineSpacing;
+                
+                if (yPos + textHeight > 270) { 
+                    doc.addPage(); 
+                    desenharCabecalho(); 
+                    yPos = 48; 
+                    doc.setFontSize(8.5).setFont(undefined, 'normal'); 
+                }
+
+                doc.setTextColor(0);
+                
+                doc.text(splitPergunta, marginX + 2, yPos);
+
+                const alignY = yPos;
+                let maxOptY = alignY; 
+
+                if (isSelecao) {
+                    let optX = colCheckX;
+                    let optY = alignY;
+
+                    item.opcoes_resposta.forEach(opt => {
+                        const isNok = (opt === item.opcao_nok);
+                        const optText = isNok ? `${opt}*` : opt; 
+                        doc.setFontSize(6.5);
+                        
+                        const textW = doc.getTextWidth(optText);
+                        const totalW = 3.5 + 1.5 + textW + 4; 
+
+                        if (optX + totalW > maxRight) {
+                            optX = colCheckX;
+                            optY += lineSpacing;
+                            maxOptY = optY;
+                        }
+
+                        doc.setDrawColor(180);
+                        doc.rect(optX, optY - 2.5, 3.5, 3.5);
+                        
+                        if (isNok) doc.setTextColor(180, 0, 0); 
+                        else doc.setTextColor(50);
+
+                        doc.text(optText, optX + 4.5, optY);
+                        optX += totalW;
+                    });
+                } else {
+                    // Padrão SIM/NÃO
+                    doc.setDrawColor(180);
+                    doc.rect(colCheckX, alignY - 2.5, 3.5, 3.5);
+                    doc.setFontSize(6.5).setTextColor(50).text("SIM", colCheckX + 4.5, alignY);
+
+                    doc.rect(colCheckX + 13, alignY - 2.5, 3.5, 3.5);
+                    doc.text("NÃO", colCheckX + 17.5, alignY);
+
+                    // Linha de Obs
+                    const lineY = yPos + textHeight + 1;
+                    doc.setDrawColor(180);
+                    doc.line(colObsX, lineY, maxRight, lineY);
+                }
+
+                const contentHeight = Math.max(textHeight, maxOptY - alignY);
+                yPos += contentHeight + itemPadding;
+            });
+        });
+
+        // --- CAIXA DE OBSERVAÇÕES GERAIS ---
+        // Aumentado o gatilho de quebra de página para caber a caixa de 4 linhas (altura 40)
+        if (yPos > 220) { doc.addPage(); desenharCabecalho(); yPos = 48; }
+        
+        yPos += 5;
+        doc.setFontSize(9).setFont(undefined, 'bold').setTextColor(0, 51, 153);
+        doc.text("OBSERVAÇÕES GERAIS:", marginX + 2, yPos);
+        yPos += 3;
+        
+        doc.setDrawColor(180);
+        doc.setFillColor(255, 255, 255);
+        // Altura aumentada para 40 para suportar 4 espaços largos
+        doc.rect(marginX, yPos, 182, 40, 'FD'); 
+        
+        // 3 Linhas pautadas internas com distância de 10mm cada (Cria 4 áreas de escrita)
+        doc.setDrawColor(230);
+        doc.line(marginX + 2, yPos + 10, marginX + 180, yPos + 10);
+        doc.line(marginX + 2, yPos + 20, marginX + 180, yPos + 20);
+        doc.line(marginX + 2, yPos + 30, marginX + 180, yPos + 30);
+
+        // --- ASSINATURA NO RODAPÉ DA ÚLTIMA PÁGINA ---
+        const totalPages = doc.internal.getNumberOfPages();
+        doc.setPage(totalPages);
+
+        const footerY = 278; 
+        doc.setDrawColor(0);
+        doc.setLineWidth(0.2);
+        
+        doc.line(marginX + 15, footerY, marginX + 75, footerY);
+        doc.setFontSize(8).setTextColor(0).setFont(undefined, 'bold').text("Assinatura do Motorista", marginX + 26, footerY + 5);
+
+        doc.line(marginX + 105, footerY, marginX + 165, footerY);
+        doc.setFontSize(8).text("Visto Responsável / Frota", marginX + 115, footerY + 5);
+
+        // Numeração de Páginas
+        for (let i = 1; i <= totalPages; i++) {
+            doc.setPage(i);
+            doc.setFontSize(7).setTextColor(150).setFont(undefined, 'normal').text(`Página ${i} de ${totalPages}`, 185, 292);
+        }
+
+        // --- LÓGICA DE EXPORTAÇÃO E NOME DE ARQUIVO ---
+        const blob = doc.output('blob');
+        const url = URL.createObjectURL(blob);
+        const nomeArquivoDefinitivo = `Checklist - ${modelo.titulo}.pdf`;
+
+        // 1. Alimenta o iframe (Preview visual)
+        document.getElementById('iframe-checklist-pdf').src = url;
+        
+        // 2. Alimenta o nosso botão customizado com o nome correto
+        const btnDownload = document.getElementById('btn-download-checklist-pdf');
+        if(btnDownload) {
+            btnDownload.href = url;
+            btnDownload.download = nomeArquivoDefinitivo; // A mágica do nome acontece aqui!
+        }
+
+        document.getElementById('modal-preview-checklist-pdf').classList.add('active');
+
+    } catch (err) {
+        console.error(err);
+        mostrarToast("Erro ao gerar PDF", "error");
+    }
+};
+
+window.fecharPreviewChecklistPDF = function() {
+    document.getElementById('modal-preview-checklist-pdf').classList.remove('active');
+    document.getElementById('iframe-checklist-pdf').src = "";
+};

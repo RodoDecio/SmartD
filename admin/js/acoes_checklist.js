@@ -1,10 +1,10 @@
-// admin/js/acoes_checklist.js
-
 // =============================================================================
 // VARIÁVEIS GLOBAIS DE ESTADO
 // =============================================================================
 let listaInspecoesCache = [];
-let inspecaoAtual = null;        
+let inspecaoAtual = null;    
+
+let formImpressoSujo = false;
 
 
 // Configuração de SLA (em horas)
@@ -71,7 +71,6 @@ async function listarInspecoes(unidadeFiltro = null) {
     const tbody = document.getElementById('tbody-inspecoes');
     const lblContagem = document.getElementById('lbl-contagem-checklist');
     
-    // Se for o primeiro carregamento e não tiver dados, mostra loading
     if(listaInspecoesCache.length === 0 && tbody) {
         tbody.innerHTML = '<tr><td colspan="9" class="text-center p-5"><i class="fas fa-spinner fa-spin"></i> Atualizando dados...</td></tr>';
     }
@@ -85,7 +84,7 @@ async function listarInspecoes(unidadeFiltro = null) {
         let query = clienteSupabase
             .from('inspecoes')
             .select(`
-                id, numero_controle, data_abertura, status, data_atendimento, data_resolucao,
+                id, numero_controle, data_abertura, status, data_atendimento, data_resolucao, parecer_tecnico, observacao_geral,
                 veiculos!inner (placa, modelo, unidade_id, unidades (nome)),
                 perfis!motorista_id (nome_completo), 
                 responsavel:perfis!responsavel_atual_id (nome_completo),
@@ -100,15 +99,11 @@ async function listarInspecoes(unidadeFiltro = null) {
         const { data, error } = await query;
         if (error) throw error;
         
-        // 1. Atualiza o Cache Global
         listaInspecoesCache = data || [];
         
-        // 2. Aplica os filtros.
-        // Se não houver filtros na tela, a função aplicarFiltrosChecklist exibirá tudo automaticamente.
         if (typeof aplicarFiltrosChecklist === 'function') {
             aplicarFiltrosChecklist();
         } else {
-            // Fallback caso a função de filtro ainda não tenha carregado
             renderizarTabelaChecklist(listaInspecoesCache);
         }
 
@@ -152,6 +147,7 @@ window.adicionarFiltroChecklist = function(tipoPre = null, valorPre = null) {
             <option value="status">Status</option>
             <option value="data">Data</option> 
             <option value="atrasado">SLA Atrasado</option>
+            <option value="origem">Origem (Tipo)</option>
         </select>
         
         <div id="wrapper-val-${id}" class="filter-value-wrapper" style="width: 250px; display:flex;">
@@ -196,6 +192,7 @@ window.adicionarFiltroChecklist = function(tipoPre = null, valorPre = null) {
             <option value="status">Status</option>
             <option value="data">Data</option> 
             <option value="atrasado">SLA Atrasado</option>
+            <option value="origem">Origem (Tipo)</option>
         </select>
         
         <div id="wrapper-val-${id}" class="filter-value-wrapper" style="width: 250px; display:flex;">
@@ -218,53 +215,52 @@ window.adicionarFiltroChecklist = function(tipoPre = null, valorPre = null) {
 
 function aplicarFiltrosChecklist() {
     let dadosFiltrados = [...listaInspecoesCache];
-    let legendas = []; // Array para armazenar as descrições dos filtros ativos
+    let legendas = [];
 
     const container = document.getElementById('container-filtros-checklist');
     
     if(container) {
         const linhas = container.querySelectorAll('.filter-row');
         linhas.forEach(linha => {
-            // 1. Captura o Tipo
             const selectTipo = linha.querySelector('select');
             const tipo = selectTipo.value;
-            const tipoTexto = selectTipo.options[selectTipo.selectedIndex].text; // Ex: "Placa", "Status"
+            const tipoTexto = selectTipo.options[selectTipo.selectedIndex].text;
 
-            // 2. Captura o Valor
             const wrapper = linha.querySelector(`div[id^="wrapper-val-"]`);
             const elValor = wrapper.querySelector('input, select');
             const valor = elValor ? elValor.value : '';
 
             if (tipo && valor) {
-                // Monta o texto visual da legenda
+                // 1. Monta a legenda visual
                 let valorTexto = valor;
-                
-                // Formatações específicas para a legenda
                 if (elValor.tagName === 'SELECT' && elValor.selectedIndex >= 0) {
                     valorTexto = elValor.options[elValor.selectedIndex].text;
                 } 
                 else if (tipo === 'data') {
                     const p = valor.split('-');
-                    valorTexto = `${p[2]}/${p[1]}/${p[0]}`; // PT-BR
-                }
-                else if (tipo === 'status') {
-                    if (valor === 'pendente_grupo') valorTexto = 'Pendente (Geral)';
-                    else if (valor === 'concluido') valorTexto = 'Concluído';
-                    else valorTexto = valor.charAt(0).toUpperCase() + valor.slice(1).replace('_', ' ');
+                    valorTexto = `${p[2]}/${p[1]}/${p[0]}`;
                 }
                 else if (tipo === 'atrasado') {
                     valorTexto = 'Sim';
                 }
 
-                // Adiciona à lista de legendas
                 legendas.push(`<b>${tipoTexto}:</b> ${valorTexto}`);
 
-                // 3. Aplica o Filtro nos Dados
+                // 2. Aplica o Filtro real nos dados (Lógica Corrigida)
                 dadosFiltrados = dadosFiltrados.filter(i => {
                     if (tipo === 'placa') return i.veiculos?.placa === valor;
                     if (tipo === 'motorista') return i.perfis?.nome_completo === valor;
                     if (tipo === 'responsavel') return i.responsavel?.nome_completo === valor;
                     
+                    // CORREÇÃO: A lógica de origem agora está dentro do filter onde 'i' existe
+                    if (tipo === 'origem') {
+                        const parecer = (i.parecer_tecnico || '');
+                        const ehManual = parecer.includes('[INSERÇÃO MANUAL VIA SISTEMA]');
+                        if (valor === 'manual') return ehManual;
+                        if (valor === 'app') return !ehManual;
+                        return true;
+                    }
+
                     if (tipo === 'data') {
                         if (!i.data_abertura) return false;
                         const dataBanco = new Date(i.data_abertura).toLocaleDateString('en-CA'); 
@@ -288,16 +284,12 @@ function aplicarFiltrosChecklist() {
         });
     }
 
-    // [NOVO] Atualiza a Barra de Legenda Visual
-    // Tenta encontrar o elemento de filtros na barra de stats. 
-    // Se não existir (dependendo do seu HTML), tente adicionar um <div id="lbl-filtros-checklist"></div> ao lado do contador.
+    // Atualiza a Barra de Legenda Visual
     const lblFiltros = document.getElementById('lbl-filtros-checklist') || document.getElementById('lbl-filtros-checklist-ativos');
-    
     if (lblFiltros) {
         if (legendas.length > 0) {
             lblFiltros.innerHTML = `<i class="fas fa-filter"></i> ${legendas.join(' <span style="margin:0 5px; color:#ccc;">|</span> ')}`;
             lblFiltros.style.color = '#003399';
-            lblFiltros.style.display = 'block';
         } else {
             lblFiltros.innerHTML = `<i class="fas fa-filter"></i> Mostrando tudo`;
             lblFiltros.style.color = '#666';
@@ -498,7 +490,6 @@ window.abrirTratativa = async function(id, modo = 'view', filtroInicial = 'todos
     const alertaContainer = document.getElementById('alerta-recusa-container');
     const footerBtns = document.getElementById('modal-footer-btns');
     
-    // [CORREÇÃO] Usa o filtro passado por parâmetro (preserva estado) ou 'todos' se for nova abertura
     const radioFiltro = document.querySelector(`input[name="filtro-itens"][value="${filtroInicial}"]`);
     if (radioFiltro) radioFiltro.checked = true;
 
@@ -542,15 +533,41 @@ window.abrirTratativa = async function(id, modo = 'view', filtroInicial = 'todos
     elBadge.className = `badge badge-${inspecaoAtual.status === 'em_analise' ? 'analise' : (inspecaoAtual.status === 'concluido' ? 'concluido' : 'pendente')}`;
 
     let textoRecusa = null;
+    
     if (inspecaoAtual.parecer_tecnico && inspecaoAtual.parecer_tecnico.includes('[RECUSA MOTORISTA')) {
         const linhas = inspecaoAtual.parecer_tecnico.split('\n');
         for (let i = linhas.length - 1; i >= 0; i--) {
             if (linhas[i].includes('[RECUSA MOTORISTA')) {
                 textoRecusa = (linhas[i].split(']:')[1] || linhas[i]).trim();
-                alertaContainer.innerHTML = `<div class="alert-mini-recusa"><i class="fas fa-exclamation-circle"></i> Checklist Devolvido pelo Motorista</div>`;
+                alertaContainer.innerHTML += `<div class="alert-mini-recusa" style="margin-bottom:10px;"><i class="fas fa-exclamation-circle"></i> Checklist Devolvido pelo Motorista</div>`;
                 break;
             }
         }
+    }
+
+    if (inspecaoAtual.parecer_tecnico && inspecaoAtual.parecer_tecnico.includes('[INSERÇÃO MANUAL VIA SISTEMA]')) {
+        const matchL = inspecaoAtual.parecer_tecnico.match(/Link do Documento: (https?:\/\/[^\s]+)/);
+        
+        alertaContainer.innerHTML += `
+            <div style="background:#e3f2fd; border-left: 5px solid #0d47a1; padding:15px; border-radius:6px; margin-bottom:15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="color:#0d47a1;">
+                        <span style="display:block; font-size:1rem; margin-bottom:5px;"><i class="fas fa-file-signature"></i> <b>Checklist inserido via Administrador</b>.</span>
+                    </div>
+                    ${matchL && matchL[1] ? `<button onclick="window.open('${matchL[1]}', '_blank')" style="background:#0d47a1; color:white; border:none; padding:8px 15px; border-radius:4px; font-weight:bold; cursor:pointer; white-space:nowrap;"><i class="fas fa-external-link-alt"></i> Ver Comprovante</button>` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    // NOVO: Exibe a Observação Geral se existir
+    if (inspecaoAtual.observacao_geral) {
+        alertaContainer.innerHTML += `
+            <div style="background:#fff3cd; border-left: 5px solid #ffc107; padding:15px; border-radius:6px; margin-bottom:15px; color: #856404;">
+                <span style="display:block; font-weight:bold; margin-bottom:5px;"><i class="fas fa-comment-dots"></i> Observação Geral do Motorista:</span>
+                <span style="font-size:0.9rem; white-space: pre-wrap;">${inspecaoAtual.observacao_geral}</span>
+            </div>
+        `;
     }
 
     try {
@@ -570,7 +587,6 @@ window.abrirTratativa = async function(id, modo = 'view', filtroInicial = 'todos
             else configurarBotoesAcao(inspecaoAtual, modo);
         }
 
-        // [CORREÇÃO] Aplica o filtro preservado
         if (typeof filtrarItensTratativa === 'function') {
             filtrarItensTratativa(filtroInicial);
         }
@@ -1043,6 +1059,13 @@ window.configurarInputFiltro = function(selectTipo, id, valorPre = null) {
         el.style.backgroundColor = '#fff3cd';
         setTimeout(aplicarFiltrosChecklist, 50);
     }
+    else if (tipo === 'origem') {
+        el.innerHTML = `
+            <option value="">Todos os Tipos</option>
+            <option value="app">Realizado via Aplicativo</option>
+            <option value="manual">Inserção Manual (Sistema)</option>
+        `;
+    }
 
     wrapper.appendChild(el);
     
@@ -1250,5 +1273,404 @@ async function registrarLog(inspecaoId, acao, mensagem) {
         });
     } catch (err) {
         console.error("Erro interno ao gravar log:", err);
+    }
+}
+
+// =============================================================================
+// REGISTRO DE CHECKLIST IMPRESSO (MANUAL AVANÇADO COM ABAS E CARDS)
+// =============================================================================
+let itensModeloAtual = []; 
+
+window.alternarAbaImpresso = function(abaId) {
+    document.querySelectorAll('.aba-content-imp').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn-imp').forEach(el => el.classList.remove('active'));
+    
+    document.getElementById(`aba-imp-${abaId}`).classList.add('active');
+    document.getElementById(`btn-aba-imp-${abaId}`).classList.add('active');
+}
+
+window.abrirModalChecklistImpresso = async function() {
+    formImpressoSujo = false; // Reseta o estado ao abrir
+
+    const modal = document.getElementById('modal-checklist-impresso');
+    modal.style.display = 'flex';
+    
+    // Ativa o monitoramento de alterações apenas uma vez
+    if (!modal.dataset.monitoramentoAtivo) {
+        modal.addEventListener('input', () => formImpressoSujo = true);
+        modal.addEventListener('change', () => formImpressoSujo = true);
+        modal.dataset.monitoramentoAtivo = "true";
+    }
+    
+    alternarAbaImpresso('dados');
+
+    const selUnidRodape = document.getElementById('sel-unidade');
+    const unidadeSel = selUnidRodape ? selUnidRodape.value : 'TODAS';
+
+    try {
+        // 1. Carregar Motoristas
+        let queryMot = clienteSupabase.from('perfis').select('id, nome_completo').eq('ativo', true).order('nome_completo');
+        if (unidadeSel !== 'TODAS') queryMot = queryMot.eq('unidade_id', unidadeSel);
+        
+        const selMot = document.getElementById('imp-motorista');
+        selMot.innerHTML = '<option value="">Carregando...</option>';
+        const { data: motoristas } = await queryMot;
+        selMot.innerHTML = '<option value="">Selecione o Motorista anotado...</option>';
+        if(motoristas) motoristas.forEach(m => selMot.innerHTML += `<option value="${m.id}">${m.nome_completo}</option>`);
+
+        // 2. Carregar Veículos
+        let queryVeic = clienteSupabase.from('veiculos').select('id, placa, modelo').eq('ativo', true).order('placa');
+        if (unidadeSel !== 'TODAS') queryVeic = queryVeic.eq('unidade_id', unidadeSel);
+
+        const selVeic = document.getElementById('imp-veiculo');
+        selVeic.innerHTML = '<option value="">Carregando...</option>';
+        const { data: veiculos } = await queryVeic;
+        selVeic.innerHTML = '<option value="">Selecione a Placa do Veículo...</option>';
+        if(veiculos) veiculos.forEach(v => selVeic.innerHTML += `<option value="${v.id}">${v.placa} - ${v.modelo}</option>`);
+
+        // 3. Limpa Modelos
+        const selMod = document.getElementById('imp-modelo');
+        selMod.innerHTML = '<option value="">Selecione o veículo primeiro...</option>';
+
+        // 4. Data atual
+        const agoraLocal = new Date();
+        agoraLocal.setMinutes(agoraLocal.getMinutes() - agoraLocal.getTimezoneOffset());
+        document.getElementById('imp-data').value = agoraLocal.toISOString().slice(0, 16);
+        
+        // 5. Reset
+        document.getElementById('imp-arquivo').value = '';
+        document.getElementById('imp-obs').value = '';
+        document.getElementById('imp-itens-container').innerHTML = '<div class="text-center p-4 text-muted"><i class="fas fa-hand-point-left fa-2x mb-2"></i><br>Selecione um veículo e um modelo na aba anterior.</div>'; 
+        itensModeloAtual = [];
+
+    } catch (e) {
+        console.error("Erro ao carregar dados:", e);
+        mostrarToast("Erro ao comunicar com banco de dados.", "error");
+    }
+}
+
+window.fecharModalChecklistImpresso = function(force = false) {
+    if (!force && formImpressoSujo) {
+        // Abre o nosso modal customizado exclusivo por cima do atual
+        const modalConfirma = document.getElementById('modal-confirma-descarte-imp');
+        if (modalConfirma) {
+            modalConfirma.style.display = 'flex';
+        } else {
+            // Fallback de emergência (caso o HTML não tenha sido atualizado)
+            if (confirm("Você possui alterações não salvas. Deseja sair e perder os dados?")) {
+                window.fecharModalChecklistImpresso(true);
+            }
+        }
+        return; // Impede que o modal principal se feche
+    }
+    
+    // Se não estiver sujo ou se a ação foi confirmada (force = true)
+    document.getElementById('modal-checklist-impresso').style.display = 'none';
+    formImpressoSujo = false; 
+}
+
+window.confirmarDescarteImpresso = function() {
+    // Esconde o modal de confirmação e força o fechamento do modal principal
+    document.getElementById('modal-confirma-descarte-imp').style.display = 'none';
+    window.fecharModalChecklistImpresso(true);
+}
+
+// NOVO: Filtra os Modelos atrelados apenas à placa escolhida
+window.carregarModelosPorVeiculo = async function(veiculoId) {
+    const selMod = document.getElementById('imp-modelo');
+    selMod.innerHTML = '<option value="">Buscando modelos vinculados...</option>';
+    
+    if (!veiculoId) {
+        selMod.innerHTML = '<option value="">Selecione o veículo primeiro...</option>';
+        return;
+    }
+
+    try {
+        const { data: vinculos, error } = await clienteSupabase
+            .from('checklist_veiculos')
+            .select('modelo_id, modelos_checklist(id, titulo, ativo)')
+            .eq('veiculo_id', veiculoId);
+
+        if (error) throw error;
+
+        // Filtra apenas os modelos que estão ativos
+        const modelosAtivos = (vinculos || [])
+            .map(v => v.modelos_checklist)
+            .filter(m => m && m.ativo === true);
+
+        if (modelosAtivos.length === 0) {
+            selMod.innerHTML = '<option value="">Nenhum checklist vinculado a esta placa.</option>';
+            document.getElementById('imp-itens-container').innerHTML = '<div class="text-center p-4 text-muted">Veículo sem checklist vinculado.</div>';
+            itensModeloAtual = [];
+            return;
+        }
+
+        selMod.innerHTML = '<option value="">Selecione o tipo do Checklist...</option>';
+        modelosAtivos.forEach(m => selMod.innerHTML += `<option value="${m.id}">${m.titulo}</option>`);
+
+        // LÓGICA INTELIGENTE: Se só existir 1, seleciona sozinho
+        if (modelosAtivos.length === 1) {
+            selMod.value = modelosAtivos[0].id;
+            window.carregarItensChecklistImpresso(modelosAtivos[0].id);
+        } else {
+            document.getElementById('imp-itens-container').innerHTML = '<div class="text-center p-4 text-muted"><i class="fas fa-hand-point-up fa-2x mb-2"></i><br>Selecione o modelo acima.</div>';
+            itensModeloAtual = [];
+        }
+
+    } catch (e) {
+        console.error("Erro ao buscar modelos:", e);
+        selMod.innerHTML = '<option value="">Erro ao carregar</option>';
+    }
+}
+
+window.carregarItensChecklistImpresso = async function(modeloId) {
+    const container = document.getElementById('imp-itens-container');
+    if (!modeloId) {
+        container.innerHTML = '<div class="text-center p-4 text-muted">Selecione o modelo na aba anterior.</div>';
+        itensModeloAtual = [];
+        return;
+    }
+
+    container.innerHTML = '<div class="text-center p-4"><i class="fas fa-spinner fa-spin fa-2x"></i><br>Carregando formulário...</div>';
+
+    try {
+        const { data, error } = await clienteSupabase
+            .from('itens_checklist')
+            .select('id, pergunta, tipo_resposta, opcoes_resposta, opcao_nok, categorias_checklist(nome, ordem)')
+            .eq('modelo_id', modeloId)
+            .eq('ativo', true);
+
+        if (error) throw error;
+
+        itensModeloAtual = data || [];
+        
+        if (itensModeloAtual.length === 0) {
+            container.innerHTML = '<div class="text-muted" style="text-align:center; padding:15px;">Nenhum item configurado para este modelo.</div>';
+            return;
+        }
+
+        itensModeloAtual.sort((a,b) => (a.categorias_checklist?.ordem || 99) - (b.categorias_checklist?.ordem || 99));
+
+        let html = '<h5 style="color:#0056b3; margin-bottom:5px; font-size:1rem; font-weight:bold;"><i class="fas fa-clipboard-list"></i> Respostas do Papel:</h5>';
+        html += '<div style="display: flex; flex-direction: column;">';
+        
+        let categoriaAtual = null;
+        let indexGlobal = 1;
+
+        itensModeloAtual.forEach((item) => {
+            const nomeCategoria = item.categorias_checklist?.nome || 'Geral';
+
+            if (nomeCategoria !== categoriaAtual) {
+                html += `
+                    <div style="margin-top: 15px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 2px solid #dee2e6;">
+                        <h6 style="font-weight: 700; margin: 0; color: #495057; font-size: 0.95rem; text-transform: uppercase;">
+                            <i class="fas fa-folder-open" style="color: #f0ad4e; margin-right: 8px;"></i>${nomeCategoria}
+                        </h6>
+                    </div>
+                `;
+                categoriaAtual = nomeCategoria;
+            }
+
+            const nomeInput = `imp_item_${item.id}`;
+            const idJustificativa = `div-just-imp-${item.id}`;
+            let opcoesHtml = '';
+
+            if (item.tipo_resposta === 'selecao' && item.opcoes_resposta && item.opcoes_resposta.length > 0) {
+                opcoesHtml = `<select name="${nomeInput}" class="form-control" style="width:100%; max-width:300px; border:1px solid #ced4da; padding:8px; border-radius:4px; margin-top:8px;" 
+                                onchange="toggleJustificativaImp('${item.id}', this.value, '${item.opcao_nok}')" required>
+                                <option value="">-- Escolha a opção anotada --</option>`;
+                item.opcoes_resposta.forEach(opt => {
+                    opcoesHtml += `<option value="${opt}">${opt}</option>`;
+                });
+                opcoesHtml += `</select>`;
+            } 
+            else {
+                opcoesHtml = `
+                    <div style="display:flex; gap:25px; font-size:0.95rem; margin-top: 10px;">
+                        <label style="cursor:pointer; display:flex; align-items:center; gap:5px; color:#198754; font-weight:bold;">
+                            <input type="radio" name="${nomeInput}" value="OK" onchange="toggleJustificativaImp('${item.id}', this.value, 'NOK')"> Conforme
+                        </label>
+                        <label style="cursor:pointer; display:flex; align-items:center; gap:5px; color:#dc3545; font-weight:bold;">
+                            <input type="radio" name="${nomeInput}" value="NOK" onchange="toggleJustificativaImp('${item.id}', this.value, 'NOK')"> Não Conforme
+                        </label>
+                        <label style="cursor:pointer; display:flex; align-items:center; gap:5px; color:#6c757d;">
+                            <input type="radio" name="${nomeInput}" value="N/A" onchange="toggleJustificativaImp('${item.id}', this.value, 'NOK')"> N/A
+                        </label>
+                    </div>
+                `;
+            }
+
+            html += `
+                <div class="card-pergunta-imp">
+                    <div style="font-weight:700; font-size:0.95rem; color:#333;">${indexGlobal}. ${item.pergunta}</div>
+                    ${opcoesHtml}
+                    
+                    <div id="${idJustificativa}" style="display:none; margin-top:12px; animation: slideDown 0.3s ease;">
+                        <label style="font-size:0.8rem; font-weight:bold; color:#dc3545;">Descreva o defeito/motivo:</label>
+                        <textarea id="just-obs-${item.id}" class="form-control" rows="2" style="width:100%; border:1px solid #dc3545; padding:8px; border-radius:4px; margin-top:4px;" placeholder="Obrigatório para itens Não Conformes..."></textarea>
+                    </div>
+                </div>
+            `;
+            
+            indexGlobal++;
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+
+    } catch (err) {
+        console.error(err);
+        container.innerHTML = '<div class="text-danger p-3">Erro ao carregar itens do checklist.</div>';
+    }
+};
+
+// Função para mostrar/esconder a justificativa dinamicamente
+window.toggleJustificativaImp = function(itemId, valorSelecionado, valorNok) {
+    const div = document.getElementById(`div-just-imp-${itemId}`);
+    const txt = document.getElementById(`just-obs-${itemId}`);
+    
+    if (valorSelecionado === valorNok) {
+        div.style.display = 'block';
+        if(txt) txt.focus();
+    } else {
+        div.style.display = 'none';
+        if(txt) txt.value = ''; // Limpa se mudar de ideia
+    }
+};
+
+window.salvarChecklistImpresso = async function() {
+    const motoristaId = document.getElementById('imp-motorista').value;
+    const veiculoId = document.getElementById('imp-veiculo').value;
+    const modeloId = document.getElementById('imp-modelo').value;
+    const dataAbertura = document.getElementById('imp-data').value;
+    const arquivoInput = document.getElementById('imp-arquivo');
+    const obsGeral = document.getElementById('imp-obs').value.trim(); // Obtém o valor limpo
+
+    if (!motoristaId || !veiculoId || !modeloId || !dataAbertura || arquivoInput.files.length === 0) {
+        if (arquivoInput.files.length === 0) {
+            alternarAbaImpresso('arquivo');
+            mostrarToast("Anexe o arquivo comprobatório na Aba 3.", "warning");
+        } else {
+            alternarAbaImpresso('dados');
+            mostrarToast("Preencha Motorista, Veículo e Modelo na Aba 1.", "warning");
+        }
+        return;
+    }
+
+    const respostasArray = [];
+    let possuiNok = false;
+    let todosRespondidos = true;
+    let pendenciaJustificativa = false;
+
+    for (const item of itensModeloAtual) {
+        let valor = null;
+        const nomeInput = `imp_item_${item.id}`;
+
+        if (item.tipo_resposta === 'selecao') {
+            const selectEl = document.querySelector(`select[name="${nomeInput}"]`);
+            if (selectEl && selectEl.value) valor = selectEl.value;
+        } else {
+            const radioEl = document.querySelector(`input[name="${nomeInput}"]:checked`);
+            if (radioEl) valor = radioEl.value;
+        }
+
+        if (!valor) { todosRespondidos = false; break; }
+        
+        let isNok = (item.tipo_resposta === 'selecao') ? (valor === item.opcao_nok) : (valor === 'NOK');
+        const justificativa = document.getElementById(`just-obs-${item.id}`).value.trim();
+        
+        if (isNok && !justificativa) { pendenciaJustificativa = true; } 
+        if (isNok) { possuiNok = true; }
+
+        respostasArray.push({
+            item_id: item.id,
+            resposta_valor: valor,
+            is_conforme: !isNok,
+            observacao: justificativa
+        });
+    }
+
+    if (!todosRespondidos || pendenciaJustificativa) {
+        alternarAbaImpresso('itens');
+        mostrarToast(pendenciaJustificativa ? "Itens NÃO CONFORMES exigem justificativa." : "Responda todos os itens do checklist.", "warning");
+        return;
+    }
+
+    const btn = document.getElementById('btn-salvar-impresso');
+    const txtOriginal = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processando...';
+    btn.disabled = true;
+
+    let idInspecaoCriada = null; 
+
+    try {
+        const { data: { user } } = await clienteSupabase.auth.getUser();
+        const arquivo = arquivoInput.files[0];
+        const ext = arquivo.name.split('.').pop();
+        const fileName = `impresso_${Date.now()}_${veiculoId}.${ext}`;
+        const path = `manuais/${fileName}`;
+
+        const { error: uploadErr } = await clienteSupabase.storage.from('comprovantes').upload(path, arquivo, { upsert: true });
+        if (uploadErr) throw uploadErr;
+
+        const { data: urlData } = clienteSupabase.storage.from('comprovantes').getPublicUrl(path);
+        const linkArquivo = urlData.publicUrl;
+
+        // O parecer_tecnico mantém apenas dados técnicos e link do arquivo
+        const notaTecnica = `[INSERÇÃO MANUAL VIA SISTEMA]\nRegistrado por: ${user.email}\nLink do Documento: ${linkArquivo}`;
+        const statusFinal = possuiNok ? 'pendente' : 'concluido';
+
+        // NOVO: Adicionado o campo observacao_geral no INSERT
+        const { data: novaInspecao, error: insErr } = await clienteSupabase
+            .from('inspecoes')
+            .insert({
+                motorista_id: motoristaId,
+                veiculo_id: veiculoId,
+                modelo_id: modeloId,
+                data_abertura: new Date(dataAbertura).toISOString(),
+                status: statusFinal,
+                parecer_tecnico: notaTecnica,
+                observacao_geral: obsGeral ? obsGeral : null, // Salva aqui
+                km_atual: 0 
+            })
+            .select().single();
+
+        if (insErr) throw insErr;
+        idInspecaoCriada = novaInspecao.id;
+
+        const payloadRespostas = respostasArray.map(r => ({
+            inspecao_id: idInspecaoCriada,
+            item_id: r.item_id,
+            resposta_valor: r.resposta_valor,
+            is_conforme: r.is_conforme,
+            observacao_motorista: r.observacao
+        }));
+
+        const { error: errResp } = await clienteSupabase.from('respostas_inspecao').insert(payloadRespostas);
+        
+        if (errResp) {
+            await clienteSupabase.from('inspecoes').delete().eq('id', idInspecaoCriada);
+            throw errResp;
+        }
+
+        const descStatus = possuiNok ? "com itens NÃO CONFORMES (Pendente)" : "com todos os itens CONFORMES (Finalizado)";
+        
+        // Log enriquece com a observação se houver
+        let logMsg = `Checklist impresso inserido manualmente via Administrador ${descStatus}. Total de itens respondidos: ${respostasArray.length}.`;
+        if (obsGeral) logMsg += `\nOBSERVAÇÕES GERAIS:\n${obsGeral}`;
+        
+        await registrarLog(idInspecaoCriada, 'CRIADO', logMsg);
+
+        mostrarToast("Checklist registrado e processado com sucesso!", "success");
+        formImpressoSujo = false; 
+        fecharModalChecklistImpresso();
+        listarInspecoes(); 
+        
+    } catch (error) {
+        console.error("Erro na transação:", error);
+        mostrarToast("Falha ao registrar: " + (error.message || "Erro de conexão"), "error");
+    } finally {
+        btn.innerHTML = txtOriginal;
+        btn.disabled = false;
     }
 }

@@ -17,7 +17,6 @@ let callbackAlertaVazios = null;
 const LABELS_TIPO = {
     'diaria': 'Diária',
     'refeicao': 'Refeição',
-    'refeicao_janta': 'Alm+Jan',
     'folga': 'Folga',
     'atestado': 'Atestado',
     'ferias': 'Férias',
@@ -615,7 +614,6 @@ async function carregarGradeCalendario() {
                         <option value="">--</option>
                         <option value="diaria" ${val==='diaria'?'selected':''}>Diária</option>
                         <option value="refeicao" ${val==='refeicao'?'selected':''}>Refeição</option>
-                        <option value="refeicao_janta" ${val==='refeicao_janta'?'selected':''}>Alm + Jan</option>
                         <option value="folga" ${val==='folga'?'selected':''}>Folga</option>
                         <option value="atestado" ${val==='atestado'?'selected':''}>Atestado</option>
                         <option value="ferias" ${val==='ferias'?'selected':''}>Férias</option>

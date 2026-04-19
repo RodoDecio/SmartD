@@ -754,10 +754,12 @@ function toggleSenhaModal() {
 
 // Função auxiliar para obter o cliente administrativo (Admin Auth)
 function obterSupabaseAdmin() {
+    // Usamos o nome da base ou um sufixo para criar uma instância isolada que não conflita com o login principal
     return supabase.createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
         auth: {
             autoRefreshToken: false,
-            persistSession: false
+            persistSession: false,
+            storageKey: 'sb-admin-context' // Chave de storage diferente para evitar o conflito detectado no console
         }
     });
 }

@@ -284,22 +284,21 @@ async function carregarColaboradoresUni(elementId) {
     const unidadeSelecionada = document.getElementById('sel-unidade')?.value;
 
     try {
-        let query = clienteSupabase
-            .from('perfis')
-            .select('id, nome_completo, unidade_id, matricula')
-            .eq('ativo', true)
-            .order('nome_completo');
-        
-        if (unidadeSelecionada && unidadeSelecionada !== 'TODAS') {
-            query = query.eq('unidade_id', unidadeSelecionada);
-        }
+        let query = clienteSupabase.from('perfis').select('id, nome_completo, matricula, unidade_id').eq('ativo', true).order('nome_completo');
+        if (unidadeSelecionada && unidadeSelecionada !== 'TODAS') query = query.eq('unidade_id', unidadeSelecionada);
 
         const { data } = await query;
         sel.innerHTML = '<option value="">Selecione...</option>';
+        
         if (data) {
+            const nomesVistos = new Set(); // Filtro de duplicatas
             data.forEach(p => {
-                const mat = p.matricula ? p.matricula : 'N/D';
-                sel.innerHTML += `<option value="${p.id}" data-matricula="${mat}">${p.nome_completo}</option>`;
+                const nomeLimpo = p.nome_completo.trim();
+                if (!nomesVistos.has(nomeLimpo)) {
+                    nomesVistos.add(nomeLimpo);
+                    const mat = p.matricula ? p.matricula : 'N/D';
+                    sel.innerHTML += `<option value="${p.id}" data-matricula="${mat}">${nomeLimpo}</option>`;
+                }
             });
             if (valorAtual) sel.value = valorAtual;
         }

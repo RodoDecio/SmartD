@@ -561,6 +561,7 @@ function traduzirAcao(a) {
 window.mostrarToast = function(msg, tipo = 'success') {
     const box = document.getElementById('toast-container');
     if (!box) return;
+    box.style.zIndex = '999999';
     const div = document.createElement('div');
     div.className = `toast ${tipo}`;
     div.innerHTML = `<i class="fas ${tipo==='success'?'fa-check-circle':'fa-times-circle'}"></i> <span>${msg}</span>`;

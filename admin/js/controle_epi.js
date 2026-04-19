@@ -330,7 +330,6 @@ async function carregarColaboradores(elementId) {
     const unidadeSelecionada = document.getElementById('sel-unidade')?.value;
 
     try {
-        // [ATUALIZADO] Busca a coluna 'matricula' explicitamente
         let query = clienteSupabase
             .from('perfis')
             .select('id, nome_completo, unidade_id, matricula') 
@@ -341,18 +340,30 @@ async function carregarColaboradores(elementId) {
             query = query.eq('unidade_id', unidadeSelecionada);
         }
 
-        const { data } = await query;
+        const { data, error } = await query;
         sel.innerHTML = '<option value="">Selecione...</option>';
+        
         if (data) {
+            // --- LÓGICA DE FILTRAGEM DE NOMES DUPLICADOS ---
+            const nomesVistos = new Set();
+            
             data.forEach(p => {
-                // [ATUALIZADO] Armazena a matrícula no atributo data-matricula
-                // Se for nulo, deixa vazio ou um traço
-                const mat = p.matricula ? p.matricula : 'N/D';
-                sel.innerHTML += `<option value="${p.id}" data-matricula="${mat}">${p.nome_completo}</option>`;
+                const nomeLimpo = p.nome_completo.trim();
+                
+                // Só adiciona ao select se o nome ainda não foi processado
+                if (!nomesVistos.has(nomeLimpo)) {
+                    nomesVistos.add(nomeLimpo);
+                    
+                    const mat = p.matricula ? p.matricula : 'N/D';
+                    sel.innerHTML += `<option value="${p.id}" data-matricula="${mat}">${nomeLimpo}</option>`;
+                }
             });
+            
             if(valorAtual) sel.value = valorAtual;
         }
-    } catch(e) { console.error(e); }
+    } catch(e) { 
+        console.error("Erro ao carregar colaboradores:", e); 
+    }
 }
 
 function fecharModalRegistroEPI() {
