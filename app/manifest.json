@@ -1,11 +1,11 @@
 {
-  "name": "Smart D",
-  "short_name": "Smart D",
+  "name": "Smart D - Rodo Decio",
+  "short_name": "Smart D-RodoDecio",
   "start_url": "index.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "background_color": "#003366",
+  "theme_color": "#003366",
   "icons": [
     {
       "src": "../admin/icons/icon-192x192.png",
