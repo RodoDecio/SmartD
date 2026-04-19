@@ -156,7 +156,11 @@ window.carregarTarefasOficina = async function() {
         </div>`;
 
     try {
-        // Removido 'modelos_checklist(titulo)' da query. Elimina o erro de "Could not find a relationship".
+        // Busca os títulos primeiro para injetar manualmente (Bypass do erro de relacionamento)
+        const { data: modelos } = await clienteSupabase.from('modelos_checklist').select('id, titulo');
+        const modelosMap = {};
+        if (modelos) modelos.forEach(m => modelosMap[m.id] = m.titulo);
+
         let query = clienteSupabase.from('inspecoes')
             .select(`
                 *,
@@ -164,7 +168,8 @@ window.carregarTarefasOficina = async function() {
                 motorista:perfis!motorista_id(nome_completo),
                 responsavel:perfis!responsavel_atual_id(nome_completo)
             `)
-            .order('data_abertura', { ascending: true });
+            .order('data_abertura', { ascending: true })
+            .limit(300); // Limite de segurança adicionado para impedir travamentos por volume
 
         if (unidadeSel !== 'TODAS') {
             query = query.eq('veiculos.unidade_id', unidadeSel);
@@ -176,6 +181,11 @@ window.carregarTarefasOficina = async function() {
         if (error) throw error;
 
         tarefasCache = data || [];
+        
+        // Injeta os nomes que buscamos acima
+        tarefasCache.forEach(t => {
+            t.modelos_checklist = { titulo: modelosMap[t.modelo_id] || 'Checklist' };
+        });
         
         const tarefasPendentes = tarefasCache.filter(t => t.status !== 'cancelado');
         
@@ -199,64 +209,45 @@ window.carregarTarefasOficina = async function() {
     }
 };
 
-// app/js/manutencao.js
-
 function renderizarCardsOficina(lista) {
     const div = document.getElementById('lista-tarefas-container');
-    div.innerHTML = '';
-
+    
     if (lista.length === 0) {
         div.innerHTML = `<div class="empty-state"><i class="fas fa-check-circle fa-3x"></i><p>Tudo limpo por aqui!</p></div>`;
         return;
     }
 
+    let htmlContent = ''; // Evita recálculos constantes do DOM
+
     lista.forEach(t => {
         const isMinha = (t.responsavel_atual_id === usuarioAtualId);
         
-        // Datas
         const dt = new Date(t.data_abertura);
         const dataCurta = dt.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'}) + ' ' + dt.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
         
-        // [ATUALIZADO] Cálculo Inteligente do SLA
         const tempoSLA = calcularTempoSLA(t.data_abertura, t.status, t.data_resolucao);
         
-        // Define se o SLA é "Ativo" (Contando) ou "Final" (Parado)
         const isSlaFinalizado = ['concluido', 'corrigido', 'aguardando_motorista'].includes(t.status);
         const labelSla = isSlaFinalizado ? `Tempo Total: ${tempoSLA}` : `${tempoSLA} atrás`;
         const iconSla = isSlaFinalizado ? '<i class="fas fa-flag-checkered"></i>' : '<i class="far fa-clock"></i>';
 
-        // Nomes e IDs
         const nomeMot = t.motorista?.nome_completo ? t.motorista.nome_completo.split(' ')[0] : '--';
         const nomeTec = t.responsavel?.nome_completo ? t.responsavel.nome_completo.split(' ')[0] : '---';
         const modeloChecklist = t.modelos_checklist?.titulo || 'Checklist';
         const idChecklist = t.numero_controle || t.id;
 
-        // Status e Cores
         let corStatus = '#6c757d'; 
         let labelStatus = t.status ? t.status.toUpperCase().replace('_', ' ') : '---';
         
-        if (t.status === 'pendente') { 
-            corStatus = '#ffc107'; labelStatus = 'ABERTO'; 
-        }
-        else if (t.status === 'em_analise') { 
-            corStatus = '#fd7e14'; labelStatus = 'EM ANDAMENTO'; 
-        }
-        else if (t.status === 'bloqueado') { 
-            corStatus = '#dc3545'; labelStatus = 'BLOQUEADO'; 
-        }
-        else if (t.status === 'aguardando_motorista') { 
-            corStatus = '#6f42c1'; labelStatus = 'VALIDAÇÃO'; 
-        }
-        else if (t.status === 'corrigido') { 
-            corStatus = '#17a2b8'; labelStatus = 'CORRIGIDO'; 
-        }
-        else if (t.status === 'concluido') { 
-            corStatus = '#28a745'; labelStatus = 'CONCLUÍDO'; 
-        }
+        if (t.status === 'pendente') { corStatus = '#ffc107'; labelStatus = 'ABERTO'; }
+        else if (t.status === 'em_analise') { corStatus = '#fd7e14'; labelStatus = 'EM ANDAMENTO'; }
+        else if (t.status === 'bloqueado') { corStatus = '#dc3545'; labelStatus = 'BLOQUEADO'; }
+        else if (t.status === 'aguardando_motorista') { corStatus = '#6f42c1'; labelStatus = 'VALIDAÇÃO'; }
+        else if (t.status === 'corrigido') { corStatus = '#17a2b8'; labelStatus = 'CORRIGIDO'; }
+        else if (t.status === 'concluido') { corStatus = '#28a745'; labelStatus = 'CONCLUÍDO'; }
 
-        div.innerHTML += `
+        htmlContent += `
             <div class="card-task" style="border-left-color: ${corStatus}" onclick="visualizarChecklist('${t.id}')">
-                
                 <div class="card-header-row" style="align-items:flex-start;">
                     <div>
                         <div style="font-size:0.85rem; color:#555; font-weight:600; margin-bottom:2px;">
@@ -285,6 +276,8 @@ function renderizarCardsOficina(lista) {
             </div>
         `;
     });
+    
+    div.innerHTML = htmlContent;
 }
 
 function renderizarBotaoCompacto(t, isMinha, cor, nomeTecnico) {
@@ -1173,7 +1166,6 @@ window.comprimirImagem = function(file, quality = 0.7, maxWidth = 1024) {
             img.src = event.target.result;
             
             img.onload = () => {
-                // 1. Cálculo das novas dimensões (mantendo proporção)
                 let width = img.width;
                 let height = img.height;
 
@@ -1182,7 +1174,6 @@ window.comprimirImagem = function(file, quality = 0.7, maxWidth = 1024) {
                     width = maxWidth;
                 }
 
-                // 2. Criação do Canvas para desenhar a imagem menor
                 const canvas = document.createElement('canvas');
                 canvas.width = width;
                 canvas.height = height;
@@ -1190,12 +1181,14 @@ window.comprimirImagem = function(file, quality = 0.7, maxWidth = 1024) {
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
 
-                // 3. Exportação comprimida (image/jpeg ou image/webp)
-                // Se quiser economizar ainda mais, mude 'image/jpeg' para 'image/webp'
                 ctx.canvas.toBlob((blob) => {
                     if (blob) {
-                        console.log(`Compressão: De ${(file.size/1024).toFixed(0)}KB para ${(blob.size/1024).toFixed(0)}KB`);
-                        resolve(blob);
+                        // Resolução definitiva do erro "Convert to Response"
+                        const newFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
+                            type: 'image/jpeg',
+                            lastModified: Date.now(),
+                        });
+                        resolve(newFile);
                     } else {
                         reject(new Error("Erro na compressão da imagem."));
                     }

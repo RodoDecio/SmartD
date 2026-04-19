@@ -309,7 +309,6 @@ window.aplicarFiltro = function() {
 // --- HISTÓRICO ---
 async function carregarHistorico() {
     try {
-        // Removido 'modelos_checklist(titulo)' para evitar erro de Cache/Relacionamento
         const { data, error } = await clienteSupabase
             .from('inspecoes')
             .select(`
@@ -325,31 +324,29 @@ async function carregarHistorico() {
         
         listaInspecoesCache = data || [];
         
-        // Injeta o nome do modelo a partir do cache local
+        // Mapeia o título do checklist localmente para não depender do relacionamento do banco
         listaInspecoesCache.forEach(ins => {
             const mod = modelosCache.find(m => m.id === ins.modelo_id);
             ins.modelos_checklist = { titulo: mod ? mod.titulo : 'Checklist' };
         });
         
+        configurarFiltros(); 
+        
     } catch (error) {
         console.error("Erro histórico:", error);
-        listaInspecoesCache = []; // Previne erros no filter
-    } finally {
-        // CRÍTICO: Movemos a chamada para o finally. Se falhar, retira o spinner infinito da tela.
-        configurarFiltros(); 
     }
 }
 
 function renderizarLista(lista) {
     const container = document.getElementById('lista-historico');
-    container.innerHTML = '';
-
+    
     if (lista.length === 0) {
         container.innerHTML = '<div style="text-align:center; margin-top:50px; color:#aaa"><i class="fas fa-check-circle fa-3x" style="opacity:0.3"></i><p>Nada encontrado.</p></div>';
         return;
     }
 
     const agora = new Date();
+    let htmlContent = ''; // Buffer de HTML para não travar o celular
 
     lista.forEach(ins => {
         const dt = new Date(ins.data_abertura);
@@ -364,7 +361,6 @@ function renderizarLista(lista) {
             slaHtml = `<div style="margin-top: 4px; text-align: right;"><span style="font-size:0.7rem; color:${corSla}; font-weight:bold; background:rgba(255,255,255,0.9); padding:2px 6px; border-radius:4px; border:1px solid ${corSla};"><i class="fas fa-clock"></i> ${textoTempo}</span></div>`;
         }
 
-        // --- DEFINIÇÃO VISUAL DOS 3 STATUS ---
         let corBorda = '#ccc';
         let corBadge = '#ccc';
         let corTextoBadge = '#fff';
@@ -372,29 +368,18 @@ function renderizarLista(lista) {
         let responsavelBadje = ''; 
         const st = (ins.status || '').toLowerCase();
 
-        // 1. CONCLUÍDO (OK Direto)
         if (st === 'concluido') {
-            corBorda = '#28a745'; // Verde
-            corBadge = '#28a745';
-            stLabel = 'CONCLUÍDO';
+            corBorda = '#28a745'; corBadge = '#28a745'; stLabel = 'CONCLUÍDO';
             responsavelBadje = `<span style="font-size:0.7rem; color:#28a745; background:#e6fffa; padding:2px 6px; border-radius:4px;"><i class="fas fa-check-circle"></i> Sem Pendências</span>`;
         } 
-        // 2. CORRIGIDO (Teve manutenção e foi aprovado)
         else if (st === 'corrigido') {
-            corBorda = '#17a2b8'; // Teal/Azul Petróleo
-            corBadge = '#17a2b8';
-            stLabel = 'CORRIGIDO'; // Label solicitada
+            corBorda = '#17a2b8'; corBadge = '#17a2b8'; stLabel = 'CORRIGIDO';
             responsavelBadje = `<span style="font-size:0.7rem; color:#17a2b8; background:#e0faff; padding:2px 6px; border-radius:4px;"><i class="fas fa-wrench"></i> Manutenção Realizada</span>`;
         }
-        // 3. PENDENTE (Tem NOK)
         else if (['pendente', 'bloqueado', 'nok'].includes(st)) {
-            corBorda = '#ffc107'; // Amarelo
-            corBadge = '#ffc107';
-            corTextoBadge = '#333';
-            stLabel = 'PENDENTE';
+            corBorda = '#ffc107'; corBadge = '#ffc107'; corTextoBadge = '#333'; stLabel = 'PENDENTE';
             responsavelBadje = `<span style="font-size:0.7rem; color:#856404; background:#fff3cd; padding:2px 6px; border-radius:4px;"><i class="fas fa-hourglass-half"></i> Aguardando Atendimento</span>`;
         }
-        // Outros (Em Análise, Validação)
         else if (st === 'em_analise') {
             corBorda = '#007bff'; corBadge = '#007bff'; stLabel = 'EM ANÁLISE';
             const tecnico = ins.perfis?.nome_completo ? ins.perfis.nome_completo.split(' ')[0] : 'Técnico';
@@ -410,7 +395,7 @@ function renderizarLista(lista) {
         const nomeModelo = ins.modelos_checklist?.titulo || 'Checklist';
         const kmExibicao = ins.km_atual ? ins.km_atual.toLocaleString('pt-BR') : '---';
 
-        container.innerHTML += `
+        htmlContent += `
             <div class="history-card" onclick="verDetalhes(${ins.id})" 
                  style="display:flex; justify-content:space-between; align-items:flex-start; padding:15px; cursor:pointer; 
                         border-left: 6px solid ${corBorda}; margin-bottom:10px; background:#fff; box-shadow:0 2px 5px rgba(0,0,0,0.05); border-radius:6px;">
@@ -438,6 +423,8 @@ function renderizarLista(lista) {
             </div>
         `;
     });
+    
+    container.innerHTML = htmlContent;
 }
 
 window.verDetalhes = async function(inspecaoId) {
@@ -775,7 +762,7 @@ window.detectarModeloChecklist = async function() {
 
         if (errV) throw errV;
 
-        // Removido o join direto do supabase para evitar erro de foreign key
+        // Traz apenas o ID do modelo, ignorando o título que causava a falha
         const { data: vinculosRaw, error: errVinculo } = await clienteSupabase
             .from('checklist_veiculos')
             .select('modelo_id')
@@ -783,7 +770,7 @@ window.detectarModeloChecklist = async function() {
 
         if (errVinculo) throw errVinculo;
 
-        // Mapeia o nome do modelo localmente usando o cache
+        // Injeta o título usando a memória do celular
         const vinculos = (vinculosRaw || []).map(v => {
             const mod = modelosCache.find(m => m.id === v.modelo_id);
             return {
@@ -803,7 +790,7 @@ window.detectarModeloChecklist = async function() {
                 lblUnico.style.display = 'block';
                 document.getElementById('lbl-checklist-nome').innerText = vinculos[0].modelos_checklist.titulo;
             } else {
-                modeloSelecionadoId = null;
+                modeloSelecionadoId = null; // Reseta para forçar a escolha
                 lblUnico.style.display = 'none';
                 containerDuplicado.style.display = 'block';
                 
@@ -838,7 +825,6 @@ window.detectarModeloChecklist = async function() {
 
         } else {
             showModal('Este veículo não possui nenhum checklist vinculado.', 'Aviso');
-            // REMOVIDO: selVeiculo.value = ""; (evita reiniciar o evento de validação e causar loop visual)
             box.style.display = 'none';
         }
     } catch (err) { 
@@ -919,28 +905,25 @@ window.iniciarConferencia = async function() {
 
 function renderizarPerguntasForm(itens) {
     const container = document.getElementById('container-perguntas');
-    container.innerHTML = '';
     let lastCat = '';
+    let htmlContent = ''; // Acumula HTML para não travar o carregamento
 
     itens.forEach(item => {
         const cat = item.categorias_checklist?.nome || 'Geral';
         if (cat !== lastCat) {
-            container.innerHTML += `<div class="category-title" style="margin-top: 30px; margin-bottom: 10px; padding-left: 5px;">${cat}</div>`;
+            htmlContent += `<div class="category-title" style="margin-top: 30px; margin-bottom: 10px; padding-left: 5px;">${cat}</div>`;
             lastCat = cat;
         }
 
-        // Badges informativos
         let badges = '';
         if (item.exige_foto) badges += `<span style="font-size:0.75rem; color:#856404; background:#fff3cd; padding:2px 6px; border-radius:4px; margin-right:5px;"><i class="fas fa-camera"></i> Foto Obrigatória</span>`;
         if (item.bloqueia_viagem) badges += `<span style="font-size:0.75rem; color:#721c24; background:#f8d7da; padding:2px 6px; border-radius:4px;"><i class="fas fa-hand-paper"></i> Crítico</span>`;
         const htmlBadges = badges ? `<div style="margin-bottom:8px;">${badges}</div>` : '';
 
         let inputHtml = '';
-
         if (item.tipo_resposta === 'selecao' && item.opcoes_resposta) {
             let btns = '';
             item.opcoes_resposta.forEach(opt => {
-                // Passamos item.bloqueia_viagem para a função
                 btns += `<div class="sel-btn" onclick="selOption(${item.id}, '${opt}', this, '${item.opcao_nok || ''}', ${item.bloqueia_viagem})">${opt}</div>`;
             });
             inputHtml = `<div class="selection-grid" id="grid-${item.id}" style="margin-bottom:15px;">${btns}</div>`;
@@ -948,7 +931,7 @@ function renderizarPerguntasForm(itens) {
         else if (item.tipo_resposta === 'texto') {
             inputHtml = `<textarea class="form-control" rows="2" placeholder="Sua resposta..." onchange="setResp(${item.id}, this.value, null, false)" style="background:#f8f9fa; border:1px solid #e9ecef;"></textarea>`;
         } 
-        else { // OK / NOK
+        else {
             inputHtml = `
                 <div class="toggle-options" style="margin-bottom:10px;">
                     <div class="opt-btn" onclick="setResp(${item.id}, 'OK', this, ${item.bloqueia_viagem})">
@@ -961,7 +944,7 @@ function renderizarPerguntasForm(itens) {
             `;
         }
 
-        const html = `
+        htmlContent += `
             <div class="history-card" id="card-${item.id}" style="padding: 20px; border-left: 5px solid #ccc;">
                 <div class="q-title" style="font-size: 1rem; margin-bottom: 5px; color: #333;">${item.pergunta}</div>
                 ${htmlBadges}
@@ -985,8 +968,9 @@ function renderizarPerguntasForm(itens) {
                 <input type="hidden" id="resp-${item.id}">
             </div>
         `;
-        container.innerHTML += html;
     });
+    
+    container.innerHTML = htmlContent;
 }
 
 // --- MANIPULAÇÃO DO FORM ---
@@ -2099,11 +2083,14 @@ window.comprimirImagem = function(file, quality = 0.7, maxWidth = 1024) {
 
                 ctx.canvas.toBlob((blob) => {
                     if (blob) {
-                        // Log de sucesso para debug
-                        console.log(`Compressão Realizada: ${(file.size/1024).toFixed(0)}KB -> ${(blob.size/1024).toFixed(0)}KB`);
-                        resolve(blob);
+                        // Resolução definitiva do erro "Convert to Response"
+                        const newFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
+                            type: 'image/jpeg',
+                            lastModified: Date.now(),
+                        });
+                        resolve(newFile);
                     } else {
-                        reject(new Error("Erro na conversão do Canvas para Blob."));
+                        reject(new Error("Erro na compressão da imagem."));
                     }
                 }, 'image/jpeg', quality);
             };
