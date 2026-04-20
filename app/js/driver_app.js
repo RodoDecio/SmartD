@@ -670,32 +670,24 @@ async function carregarVeiculos() {
     sel.disabled = true;
 
     try {
-        // Query base
+        // [CORREÇÃO] Removemos o eq('ativo', true) da query para ter a frota completa no cache.
+        // Isso preserva os dados para validações de histórico e KM.
         let query = clienteSupabase
             .from('veiculos')
             .select('*')
-            .eq('ativo', true)
             .order('placa');
 
-        // [CORREÇÃO]: Usamos perfilMotorista (que tem os dados) e não usuarioAtual
         const funcao = perfilMotorista.funcao || '';
         const isManutencao = ['manutencao', 'manutentor', 'analista'].includes(funcao);
         const temLista = perfilMotorista.listaUnidades && perfilMotorista.listaUnidades.length > 0;
 
-        // LÓGICA DE FILTRO
         if (isManutencao && temLista) {
-            // Cenário: Manutentor com acesso liberado na tabela perfis_unidades
             query = query.in('unidade_id', perfilMotorista.listaUnidades);
         } 
         else {
-            // Cenário: Motorista ou Manutentor sem lista (vê apenas sua unidade fixa)
-            
-            // [CRUCIAL]: Verificação para evitar o erro "invalid input syntax... undefined"
             if (perfilMotorista.unidade_id) {
                 query = query.eq('unidade_id', perfilMotorista.unidade_id);
             } else {
-                // Se o usuário não tem unidade vinculada no cadastro, paramos aqui
-                // para não quebrar a query com undefined.
                 console.warn("Usuário sem unidade vinculada.");
                 sel.innerHTML = '<option value="" disabled>Seu cadastro não possui unidade</option>';
                 sel.disabled = false;
@@ -706,15 +698,16 @@ async function carregarVeiculos() {
         const { data, error } = await query;
         if (error) throw error;
 
-        // Renderização
         veiculosCache = data || [];
         sel.innerHTML = '<option value="">Selecione...</option>';
-        sel.disabled = false;
 
-        if (veiculosCache.length === 0) {
+        // [LÓGICA VISUAL] Filtra APENAS os veículos ativos para o motorista iniciar a viagem
+        const veiculosAtivos = veiculosCache.filter(v => v.ativo === true);
+
+        if (veiculosAtivos.length === 0) {
             sel.innerHTML += '<option value="" disabled>Nenhum veículo disponível</option>';
         } else {
-            veiculosCache.forEach(v => {
+            veiculosAtivos.forEach(v => {
                 sel.innerHTML += `<option value="${v.id}">${v.placa} - ${v.modelo || 'Modelo'}</option>`;
             });
         }
@@ -722,7 +715,6 @@ async function carregarVeiculos() {
     } catch (e) {
         console.error("Erro ao carregar veículos:", e);
         sel.innerHTML = '<option value="">Erro ao carregar</option>';
-        // Mostra o erro apenas se a função showModal existir
         if (typeof showModal === 'function') showModal('Erro: ' + e.message, 'Erro');
     } finally {
         sel.disabled = false;
@@ -731,8 +723,8 @@ async function carregarVeiculos() {
 
 async function carregarModelos() {
     try {
-        // Envolvido em Try/Catch para evitar que uma falha aqui quebre toda a inicialização (Loop infinito do spinner)
-        const { data, error } = await clienteSupabase.from('modelos_checklist').select('*').eq('ativo', true);
+       
+        const { data, error } = await clienteSupabase.from('modelos_checklist').select('*');
         if (error) throw error;
         modelosCache = data || [];
     } catch (e) {
@@ -762,7 +754,6 @@ window.detectarModeloChecklist = async function() {
 
         if (errV) throw errV;
 
-        // Traz apenas o ID do modelo, ignorando o título que causava a falha
         const { data: vinculosRaw, error: errVinculo } = await clienteSupabase
             .from('checklist_veiculos')
             .select('modelo_id')
@@ -770,14 +761,17 @@ window.detectarModeloChecklist = async function() {
 
         if (errVinculo) throw errVinculo;
 
-        // Injeta o título usando a memória do celular
+        // [CORREÇÃO] Injeta o título e verifica se o modelo está ATIVO
         const vinculos = (vinculosRaw || []).map(v => {
             const mod = modelosCache.find(m => m.id === v.modelo_id);
             return {
                 modelo_id: v.modelo_id,
-                modelos_checklist: { titulo: mod ? mod.titulo : 'Checklist' }
+                modelos_checklist: { 
+                    titulo: mod ? mod.titulo : 'Checklist',
+                    ativo: mod ? mod.ativo : false 
+                }
             };
-        });
+        }).filter(v => v.modelos_checklist.ativo === true); // Ignora modelos inativos!
 
         if (vinculos && vinculos.length > 0) {
             document.getElementById('lbl-marca').innerText = vAtual.marca || 'MARCA N/A';
@@ -824,7 +818,7 @@ window.detectarModeloChecklist = async function() {
             document.getElementById('lbl-last-date').innerHTML = `${lastDate} <br> <span style="color:#333; font-weight:bold; font-size:0.8rem;"><i class="fas fa-tachometer-alt" style="color:var(--cor-primary)"></i> ${kmDisplay} km</span>`;
 
         } else {
-            showModal('Este veículo não possui nenhum checklist vinculado.', 'Aviso');
+            showModal('Este veículo não possui nenhum modelo de checklist ATIVO vinculado.', 'Aviso');
             box.style.display = 'none';
         }
     } catch (err) { 

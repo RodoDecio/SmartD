@@ -144,23 +144,21 @@ window.inicializarManutencaoMobile = async function() {
 // 2. LISTAGEM E FILTROS (HUB & OFICINA)
 // =================================================================
 
-window.carregarTarefasOficina = async function() {
+window.carregarTarefasOficina = async function(preservarFiltro = true) {
     const div = document.getElementById('lista-tarefas-container');
     const selUnidRodape = document.getElementById('sel-unidade-rodape');
     const unidadeSel = selUnidRodape ? selUnidRodape.value : 'TODAS';
     
-    div.innerHTML = `
-        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; width: 100%; color: var(--cor-primary);">
-            <div class="spinner-border" role="status" style="width: 3rem; height: 3rem; margin-bottom: 15px;"></div>
-            <p style="font-weight: bold; letter-spacing: 1px; animation: pulse 1.5s infinite;">ATUALIZANDO FILA...</p>
-        </div>`;
+    // Só exibe spinner de tela cheia se for a primeira carga
+    if (tarefasCache.length === 0) {
+        div.innerHTML = `
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; width: 100%; color: var(--cor-primary);">
+                <div class="spinner-border" role="status" style="width: 3rem; height: 3rem; margin-bottom: 15px;"></div>
+                <p style="font-weight: bold; letter-spacing: 1px; animation: pulse 1.5s infinite;">ATUALIZANDO FILA...</p>
+            </div>`;
+    }
 
     try {
-        // Busca os títulos primeiro para injetar manualmente (Bypass do erro de relacionamento)
-        const { data: modelos } = await clienteSupabase.from('modelos_checklist').select('id, titulo');
-        const modelosMap = {};
-        if (modelos) modelos.forEach(m => modelosMap[m.id] = m.titulo);
-
         let query = clienteSupabase.from('inspecoes')
             .select(`
                 *,
@@ -168,8 +166,7 @@ window.carregarTarefasOficina = async function() {
                 motorista:perfis!motorista_id(nome_completo),
                 responsavel:perfis!responsavel_atual_id(nome_completo)
             `)
-            .order('data_abertura', { ascending: true })
-            .limit(300); // Limite de segurança adicionado para impedir travamentos por volume
+            .order('data_abertura', { ascending: true });
 
         if (unidadeSel !== 'TODAS') {
             query = query.eq('veiculos.unidade_id', unidadeSel);
@@ -182,22 +179,23 @@ window.carregarTarefasOficina = async function() {
 
         tarefasCache = data || [];
         
-        // Injeta os nomes que buscamos acima
-        tarefasCache.forEach(t => {
-            t.modelos_checklist = { titulo: modelosMap[t.modelo_id] || 'Checklist' };
-        });
-        
-        const tarefasPendentes = tarefasCache.filter(t => t.status !== 'cancelado');
-        
-        renderizarCardsOficina(tarefasPendentes.length > 0 ? tarefasPendentes : tarefasCache);
-        
-        const selTipo = document.getElementById('sel-filtro-tipo');
-        if(selTipo) selTipo.value = "";
-        
-        const selVal = document.getElementById('sel-filtro-valor');
-        if(selVal) {
-            selVal.innerHTML = '<option value="">Selecione...</option>';
-            selVal.disabled = true;
+        // Mantém o filtro aplicado na interface
+        if (preservarFiltro) {
+            aplicarFiltroDuplo(); 
+        } else {
+            window.itensExibidosOficina = 15;
+            const tarefasPendentes = tarefasCache.filter(t => t.status !== 'cancelado');
+            
+            // Limpa os inputs se for carga limpa
+            const selTipo = document.getElementById('sel-filtro-tipo');
+            if(selTipo) selTipo.value = "";
+            const selVal = document.getElementById('sel-filtro-valor');
+            if(selVal) {
+                selVal.innerHTML = '<option value="">Selecione...</option>';
+                selVal.disabled = true;
+            }
+            
+            renderizarCardsOficina(tarefasPendentes);
         }
 
     } catch (err) {
@@ -209,24 +207,33 @@ window.carregarTarefasOficina = async function() {
     }
 };
 
+window.itensExibidosOficina = 15;
+
 function renderizarCardsOficina(lista) {
     const div = document.getElementById('lista-tarefas-container');
-    
+    div.innerHTML = '';
+
     if (lista.length === 0) {
         div.innerHTML = `<div class="empty-state"><i class="fas fa-check-circle fa-3x"></i><p>Tudo limpo por aqui!</p></div>`;
         return;
     }
 
-    let htmlContent = ''; // Evita recálculos constantes do DOM
+    lista.sort((a, b) => {
+        const dataA = new Date(a.data_abertura || 0);
+        const dataB = new Date(b.data_abertura || 0);
+        return dataB - dataA; // Decrescente (Maior/Mais novo primeiro)
+    });
 
-    lista.forEach(t => {
+    // Corta a lista para a paginação atual
+    const listaPaginada = lista.slice(0, window.itensExibidosOficina);
+    let htmlContent = '';
+
+    listaPaginada.forEach(t => {
         const isMinha = (t.responsavel_atual_id === usuarioAtualId);
-        
         const dt = new Date(t.data_abertura);
         const dataCurta = dt.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'}) + ' ' + dt.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
         
         const tempoSLA = calcularTempoSLA(t.data_abertura, t.status, t.data_resolucao);
-        
         const isSlaFinalizado = ['concluido', 'corrigido', 'aguardando_motorista'].includes(t.status);
         const labelSla = isSlaFinalizado ? `Tempo Total: ${tempoSLA}` : `${tempoSLA} atrás`;
         const iconSla = isSlaFinalizado ? '<i class="fas fa-flag-checkered"></i>' : '<i class="far fa-clock"></i>';
@@ -278,6 +285,23 @@ function renderizarCardsOficina(lista) {
     });
     
     div.innerHTML = htmlContent;
+
+    // Detecta o fim da lista e cria o "gatilho" transparente
+    if (window.itensExibidosOficina < lista.length) {
+        const sentinela = document.createElement('div');
+        sentinela.style.cssText = "height: 60px; display: flex; justify-content: center; align-items: center; width: 100%;";
+        sentinela.innerHTML = '<div class="spinner-border" role="status" style="color:var(--cor-primary); width:2rem; height:2rem;"></div>';
+        div.appendChild(sentinela);
+
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) {
+                observer.disconnect(); // Desliga o atual
+                window.itensExibidosOficina += 15; // Adiciona +15 na conta
+                renderizarCardsOficina(lista); // Chama a renderização de novo
+            }
+        });
+        observer.observe(sentinela);
+    }
 }
 
 function renderizarBotaoCompacto(t, isMinha, cor, nomeTecnico) {
@@ -535,8 +559,11 @@ function aplicarFiltroDuplo() {
     const tipo = document.getElementById('sel-filtro-tipo').value;
     const valor = document.getElementById('sel-filtro-valor').value;
 
+    window.itensExibidosOficina = 15; // Reseta o scroll infinito ao filtrar
+
     if (!valor) {
-        renderizarCardsOficina(tarefasCache);
+        const pendentes = tarefasCache.filter(t => t.status !== 'cancelado');
+        renderizarCardsOficina(pendentes);
         return;
     }
 
@@ -640,36 +667,34 @@ window.visualizarChecklist = function(id) {
 function renderizarBarraFiltros() {
     const divContent = document.getElementById('work-content');
     
-    // Conta quantidades para os badges
+    // Contagem Segregada
     const total = itensTrabalhoCache.length;
-    const nok = itensTrabalhoCache.filter(r => !r.is_conforme).length;
-    const ok = itensTrabalhoCache.filter(r => r.is_conforme).length;
+    const pendentes = itensTrabalhoCache.filter(r => !r.is_conforme && !r.obs_resolucao).length;
+    const corrigidos = itensTrabalhoCache.filter(r => !r.is_conforme && r.obs_resolucao).length;
+    const oks = itensTrabalhoCache.filter(r => r.is_conforme).length;
 
+    const getCls = (tipo) => filtroItemAtual === tipo ? 'active' : '';
+
+    // Barra com Scroll Horizontal
     divContent.innerHTML = `
-        <div class="filter-bar-sticky">
-            <div class="filter-chip active" onclick="aplicarFiltroItens('todos', this)">
-                Todos (${total})
-            </div>
-            <div class="filter-chip" onclick="aplicarFiltroItens('nok', this)">
-                <i class="fas fa-exclamation-triangle"></i> Pendentes (${nok})
-            </div>
-            <div class="filter-chip" onclick="aplicarFiltroItens('ok', this)">
-                <i class="fas fa-check-circle"></i> OK/Corrigidos (${ok})
-            </div>
+        <div class="filter-bar-sticky" style="display:flex; gap:10px; overflow-x:auto; padding-bottom:10px; white-space:nowrap;">
+            <div class="filter-chip ${getCls('todos')}" onclick="aplicarFiltroItens('todos', this)">Todos (${total})</div>
+            <div class="filter-chip ${getCls('nok')}" onclick="aplicarFiltroItens('nok', this)"><i class="fas fa-exclamation-triangle" style="color:#dc3545"></i> Pendentes (${pendentes})</div>
+            <div class="filter-chip ${getCls('corrigido')}" onclick="aplicarFiltroItens('corrigido', this)"><i class="fas fa-wrench" style="color:#17a2b8"></i> Corrigidos (${corrigidos})</div>
+            <div class="filter-chip ${getCls('ok')}" onclick="aplicarFiltroItens('ok', this)"><i class="fas fa-check-circle" style="color:#28a745"></i> OK (${oks})</div>
         </div>
         <div id="lista-itens-render" style="padding:10px; padding-bottom: 80px;"></div>
     `;
 }
 
+
 // Filtra a lista em memória e atualiza a UI
 window.aplicarFiltroItens = function(tipo, el) {
     filtroItemAtual = tipo;
     
-    // Atualiza visual dos botões
     document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
     el.classList.add('active');
 
-    // Verifica modo leitura novamente (baseado no status global)
     const isReadOnly = ['concluido', 'corrigido', 'aguardando_motorista'].includes(tarefaAtual.status);
     renderizarListaItens(isReadOnly);
 };
@@ -679,7 +704,10 @@ function renderizarListaItens(isReadOnly) {
     container.innerHTML = '';
 
     let lista = itensTrabalhoCache;
-    if (filtroItemAtual === 'nok') lista = lista.filter(r => !r.is_conforme);
+    
+    // Filtragem Segregada
+    if (filtroItemAtual === 'nok') lista = lista.filter(r => !r.is_conforme && !r.obs_resolucao);
+    else if (filtroItemAtual === 'corrigido') lista = lista.filter(r => !r.is_conforme && r.obs_resolucao);
     else if (filtroItemAtual === 'ok') lista = lista.filter(r => r.is_conforme);
 
     if (lista.length === 0) {
@@ -703,10 +731,9 @@ function renderizarListaItens(isReadOnly) {
 
         let html = `
             <div class="item-card ${statusClass}" id="card-item-${r.id}">
-                <div style="font-weight:700; color:#333; margin-bottom:8px;">${icon} ${r.itens_checklist.pergunta}</div>
+                <div style="font-weight:700; color:#333; margin-bottom:8px;">${icon} ${r.itens_checklist?.pergunta || ''}</div>
         `;
 
-        // --- RENDERIZAÇÃO DO HISTÓRICO COM FOTO ANTIGA ---
         if (r.observacao_motorista || r.foto_url) {
             let textoCompleto = r.observacao_motorista || '';
             
@@ -714,7 +741,6 @@ function renderizarListaItens(isReadOnly) {
             let defeitoOriginal = partes[0].trim();
             let historico = partes.slice(1); 
 
-            // A. Balão do Defeito Original
             html += `
                 <div class="bubble-driver" style="font-size:0.9rem; background:#fff5f5; padding:10px; border-radius:8px; margin-bottom:10px; border-left: 4px solid #dc3545;">
                     <div style="font-weight:bold; color:#dc3545; font-size:0.75rem; margin-bottom:4px;">MOTORISTA (Relato Original):</div>
@@ -723,24 +749,19 @@ function renderizarListaItens(isReadOnly) {
                 </div>
             `;
 
-            // B. Balões do Histórico (Loop nas recusas anteriores)
             if (historico.length > 0) {
                 historico.forEach(bloco => {
-                    // 1. Detecta se tem Link de Foto no texto
                     let botaoFotoAntiga = '';
-                    // Regex para capturar [FOTO_RES::url] e removê-lo do texto visível
                     bloco = bloco.replace(/\[FOTO_RES::(.*?)\]/g, function(match, url) {
-                        // Cria o botão para esta URL
                         botaoFotoAntiga = `
                             <div style="margin-top:5px; text-align:right;">
                                 <button onclick="verFoto('${url}')" style="font-size:0.75rem; padding:4px 8px; border:1px solid #17a2b8; background:white; color:#17a2b8; border-radius:4px; cursor:pointer;">
                                     <i class="fas fa-camera-retro"></i> Foto da Correção
                                 </button>
                             </div>`;
-                        return ''; // Remove a tag do texto corrido
+                        return ''; 
                     });
 
-                    // 2. Formatação do Texto
                     let htmlBloco = bloco
                         .replace(/\[🔧 MANUTENÇÃO/g, '<div style="margin-top:8px; font-weight:bold; color:#0056b3;"><i class="fas fa-wrench"></i> MANUTENÇÃO')
                         .replace(/\[❌ RECUSA/g, '</div>' + botaoFotoAntiga + '<div style="margin-top:8px; font-weight:bold; color:#c82333; border-top:1px dashed #ccc; padding-top:5px;"><i class="fas fa-times-circle"></i> RECUSA')
@@ -755,7 +776,6 @@ function renderizarListaItens(isReadOnly) {
             }
         }
 
-        // --- ÁREA DE NOVA AÇÃO ---
         if (!r.is_conforme || r.obs_resolucao) {
             const val = r.obs_resolucao || ''; 
             const temFotoResolucao = r.foto_resolucao && r.foto_resolucao.length > 10;
