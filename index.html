@@ -233,81 +233,86 @@
         });
 
     // --- 3. LOGIN ---
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const loginInput = document.getElementById('loginInput');
-        const passwordInput = document.getElementById('passwordInput');
-        const btn = document.getElementById('btnEntrar');
-        const msg = document.getElementById('msgErro');
-
-        // O usuário pode digitar CPF ou E-mail, o sistema aceita os dois sem usar isso para roteamento
-        const entradaRaw = loginInput.value;
-        const entradaLimpa = /^\d/.test(entradaRaw) ? entradaRaw.replace(/\D/g, '') : entradaRaw.trim();
-        const eCpf = /^\d+$/.test(entradaLimpa); 
-        let emailParaLogin = eCpf ? `${entradaLimpa}@frota.com` : entradaLimpa;
-
-        btn.disabled = true; 
-        btn.innerText = "Verificando..."; 
-        msg.innerText = "";
-
-        try {
-            const { data, error } = await clienteSupabase.auth.signInWithPassword({
-                email: emailParaLogin,
-                password: passwordInput.value
-            });
-
-            if (error) throw error;
-
-            // Busca perfil
-            const { data: perfil, error: perfilError } = await clienteSupabase
-                .from('perfis')
-                .select('*')
-                .eq('id', data.user.id)
-                .single();
-
-            if (perfilError) throw new Error("Perfil não localizado.");
-
-            // --- FUNÇÃO DE DETECÇÃO DE DISPOSITIVO ---
-            // Verifica pelo User-Agent (identidade do sistema) ou se a tela for menor que 768px
-            const isMobileDevice = () => {
-                const userAgentMatches = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-                const screenIsSmall = window.innerWidth <= 768;
-                return userAgentMatches || screenIsSmall;
-            };
-
-            const isMobile = isMobileDevice();
-
-            // --- ROTEAMENTO INTELIGENTE (HUB) ---
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
             
-            // 1. Motorista Comum -> Sempre usa o app mobile
-            if (perfil.funcao === 'motorista') {
-                window.location.replace('app/index.html'); 
-            } 
-            // 2. Manutenção / Admin -> Roteamento baseado no dispositivo
-            else if (perfil.funcao === 'manutencao' || perfil.funcao === 'manutentor' || perfil.funcao === 'admin') {
+            const loginInput = document.getElementById('loginInput');
+            const passwordInput = document.getElementById('passwordInput');
+            const btn = document.getElementById('btnEntrar');
+            const msg = document.getElementById('msgErro');
+
+            // Tratamento da entrada
+            const entradaRaw = loginInput.value;
+            const entradaLimpa = /^\d/.test(entradaRaw) ? entradaRaw.replace(/\D/g, '') : entradaRaw.trim();
+            const eCpf = /^\d+$/.test(entradaLimpa); 
+            let emailParaLogin = eCpf ? `${entradaLimpa}@frota.com` : entradaLimpa;
+
+            btn.disabled = true; 
+            btn.innerText = "Verificando..."; 
+            msg.innerText = "";
+
+            try {
+                const { data, error } = await clienteSupabase.auth.signInWithPassword({
+                    email: emailParaLogin,
+                    password: passwordInput.value
+                });
+
+                if (error) throw error;
+
+                // Busca perfil
+                const { data: perfil, error: perfilError } = await clienteSupabase
+                    .from('perfis')
+                    .select('*')
+                    .eq('id', data.user.id)
+                    .single();
+
+                if (perfilError) throw new Error("Perfil não localizado.");
+
+                // --- DETECÇÃO MOBILE BLINDADA ---
+                const isMobileDevice = () => {
+                    // 1. Checa pela assinatura do navegador (User Agent)
+                    const ua = navigator.userAgent || navigator.vendor || window.opera;
+                    const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+                    
+                    // 2. Checa se o aparelho tem tela de toque e o tamanho da tela
+                    const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+                    const isSmallScreen = window.innerWidth <= 992; // 992px engloba celulares e tablets em pé
+
+                    // Se qualquer uma das condições for verdadeira, é um dispositivo móvel
+                    return isMobileUA || (hasTouch && isSmallScreen);
+                };
+
+                const isMobile = isMobileDevice();
                 
-                if (isMobile) {
-                    // Está no celular: Abre o App
-                    window.location.replace('app/manutencao.html');
-                } else {
-                    // Está no computador: Abre o Painel Admin
+                // Normaliza a função do usuário para evitar erros de maiúsculas/minúsculas
+                const funcaoUsuario = (perfil.funcao || '').toLowerCase().trim();
+
+                // --- ROTEAMENTO INTELIGENTE (HUB) ---
+                
+                // 1. Motorista Comum -> Sempre vai para a raiz do APP Mobile
+                if (funcaoUsuario === 'motorista') {
+                    window.location.replace('app/index.html'); 
+                } 
+                // 2. Manutenção / Admin -> Roteamento baseado no aparelho
+                else if (funcaoUsuario === 'manutencao' || funcaoUsuario === 'manutentor' || funcaoUsuario === 'admin') {
+                    if (isMobile) {
+                        window.location.replace('app/manutencao.html');
+                    } else {
+                        window.location.replace('admin/index.html');
+                    }
+                } 
+                // 3. Outros cargos administrativos (Gestor, etc) -> Sempre Desktop
+                else {
                     window.location.replace('admin/index.html');
                 }
 
-            } 
-            // 3. Outros administrativos -> Sempre desktop
-            else {
-                window.location.replace('admin/index.html');
+            } catch (erro) {
+                console.error("Erro no login:", erro);
+                msg.innerText = "Falha: Credenciais incorretas ou erro de perfil.";
+                btn.disabled = false; 
+                btn.innerText = "Entrar";
             }
-
-        } catch (erro) {
-            console.error("Erro no login:", erro);
-            msg.innerText = "Falha: Credenciais incorretas ou erro de perfil.";
-            btn.disabled = false; 
-            btn.innerText = "Entrar";
-        }
-    });
+        });
 
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
