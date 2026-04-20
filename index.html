@@ -314,14 +314,6 @@
             }
         });
 
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            // Registra o SW da raiz com escopo global
-            navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
-            .then(reg => console.log('PWA Raiz (Login) registrado!'))
-            .catch(err => console.error('Erro ao registrar PWA Raiz:', err));
-        });
-    }
 
     </script>
 </body>
