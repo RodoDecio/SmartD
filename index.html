@@ -19,18 +19,23 @@
 
     <style>
         /* ESTILOS GERAIS */
-        body, html { height: 100%; margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #ffffff; }
+        body, html { 
+            height: 100%; 
+            margin: 0; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: #ffffff; 
+            overflow: hidden; /* Impede a rolagem na tela de login */
+        }
         
         .main-container {
             display: flex;
-            height: 100vh;
+            height: 100%; /* Mudado de 100vh para 100% para suportar melhor o PWA */
             width: 100%;
         }
 
         /* --- ÁREA DA IMAGEM DE FUNDO (ESQUERDA) --- */
         .branding-side {
-            display: none; /* Mobile: some */
-            flex: 3; /* AUMENTADO de 2 para 3 */
+            display: none; /* Mobile: some completamente */
             position: relative;
             overflow: hidden;
             background-color: #0d6efd;
@@ -42,7 +47,8 @@
             top: 0; left: 0;
             width: 100%;
             height: 100%;
-            object-fit: cover; /* Garante que preencha toda a altura da div pai */
+            object-fit: cover; 
+            object-position: left center;
             z-index: 0;
         }
         
@@ -56,23 +62,23 @@
 
         /* --- ÁREA DO LOGIN (DIREITA) --- */
         .login-side {
-        flex: 1; 
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: flex-start;
-        padding: 0;
-        background-color: #ffffff; /* Fundo branco para a área de inputs */
-        position: relative;
+            flex: 1; 
+            width: 100%; /* Força a ocupar 100% da tela no mobile */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #eceff3 0%, #ffffff 100%);
+            position: relative; 
+            z-index: 10;
         }
 
         .login-card {
             width: 100%;
             max-width: 400px;
             padding: 2rem;
+            background: transparent; /* Garante que não tenha fundo conflitante */
         }
-
-        
 
         /* LOGO E TÍTULO */
         .logo-area {
@@ -87,16 +93,14 @@
             margin-right: auto;
         }
         .app-title {
-            color: #00aaff; /* Azul claro */
+            color: #0055aa; 
             font-weight: 700;
             margin-bottom: 0.2rem;
             font-size: 1.8rem;
         }
-
-        /* Ajuste auxiliar para o subtítulo e labels ficarem legíveis no fundo azul */
-        .app-subtitle, .form-label {
-            color: #2A27F5 !important; 
-            opacity: 0.9;
+        .app-subtitle {
+            color: #6c757d;
+            font-size: 0.9rem;
         }
 
         /* CAMPOS */
@@ -138,10 +142,16 @@
             transform: translateY(-1px);
         }
 
-        /* DESKTOP */
+        /* DESKTOP (A partir de 992px) */
         @media (min-width: 992px) {
-            .branding-side { display: block; }
-            .login-side { box-shadow: -5px 0 25px rgba(0,0,0,0.05); }
+            .branding-side { 
+                display: block; 
+                flex: 3; /* No desktop a imagem ocupa 3/4 da tela */
+            }
+            .login-side { 
+                flex: 1; /* O login ocupa 1/4 da tela */
+                box-shadow: -5px 0 25px rgba(0,0,0,0.05); 
+            }
         }
     </style>
 </head>
@@ -222,7 +232,7 @@
             }
         });
 
-        // --- 3. LOGIN ---
+    // --- 3. LOGIN ---
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         
@@ -231,7 +241,7 @@
         const btn = document.getElementById('btnEntrar');
         const msg = document.getElementById('msgErro');
 
-        // Tratamento da entrada
+        // O usuário pode digitar CPF ou E-mail, o sistema aceita os dois sem usar isso para roteamento
         const entradaRaw = loginInput.value;
         const entradaLimpa = /^\d/.test(entradaRaw) ? entradaRaw.replace(/\D/g, '') : entradaRaw.trim();
         const eCpf = /^\d+$/.test(entradaLimpa); 
@@ -258,29 +268,37 @@
 
             if (perfilError) throw new Error("Perfil não localizado.");
 
+            // --- FUNÇÃO DE DETECÇÃO DE DISPOSITIVO ---
+            // Verifica pelo User-Agent (identidade do sistema) ou se a tela for menor que 768px
+            const isMobileDevice = () => {
+                const userAgentMatches = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                const screenIsSmall = window.innerWidth <= 768;
+                return userAgentMatches || screenIsSmall;
+            };
+
+            const isMobile = isMobileDevice();
+
             // --- ROTEAMENTO INTELIGENTE (HUB) ---
             
-            // 1. Motorista Comum -> Vai direto
+            // 1. Motorista Comum -> Sempre usa o app mobile
             if (perfil.funcao === 'motorista') {
                 window.location.replace('app/index.html'); 
             } 
-            // 2. Manutenção / Admin
+            // 2. Manutenção / Admin -> Roteamento baseado no dispositivo
             else if (perfil.funcao === 'manutencao' || perfil.funcao === 'manutentor' || perfil.funcao === 'admin') {
                 
-                if (eCpf) {
-                    // LOGIN MOBILE (CPF) -> Abre o HUB de Decisão
-                    
+                if (isMobile) {
+                    // Está no celular: Abre o App
                     window.location.replace('app/manutencao.html');
-                    
                 } else {
-                    // LOGIN DESKTOP (Email) -> Vai para Admin
-                    window.location.href = 'admin/index.html';
+                    // Está no computador: Abre o Painel Admin
+                    window.location.replace('admin/index.html');
                 }
 
             } 
+            // 3. Outros administrativos -> Sempre desktop
             else {
-                // Outros administrativos
-                window.location.href = 'admin/index.html';
+                window.location.replace('admin/index.html');
             }
 
         } catch (erro) {
