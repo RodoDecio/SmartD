@@ -50,7 +50,9 @@ window.adicionarFiltroRelatorioPremiacao = function (tipoPadrao = "") {
             <option value="" disabled ${!tipoPadrao ? 'selected' : ''}>Filtrar por...</option>
             <option value="competencia" ${tipoPadrao === 'competencia' ? 'selected' : ''}>Competência (Mês/Ano)</option>
             <option value="motorista">Motorista</option>
-            <option value="status">Status</option> </select>
+            <option value="status">Status da Apuração</option> 
+            <option value="status_motorista">Status do Colaborador</option> 
+        </select>
         <div id="wrapper-prem-${id}" style="display:flex; gap:10px; flex:0 1 450px;"></div>
         <button onclick="this.parentElement.remove()" style="background:none;border:none;color:#ff4444;cursor:pointer"><i class="fas fa-times"></i></button>
     `;
@@ -69,7 +71,7 @@ window.configurarInputRelPremiacao = async function (sel, id) {
     if (tipo === 'competencia') {
         wrapper.innerHTML = `<input type="month" class="form-control" id="val-prem-${id}" style="max-width: 160px;">`;
     } 
-    else if (tipo === 'status') { // NOVO BLOCO
+    else if (tipo === 'status') {
         wrapper.innerHTML = `
             <select class="form-control" id="val-prem-${id}">
                 <option value="Aberto">Aberto</option>
@@ -77,15 +79,29 @@ window.configurarInputRelPremiacao = async function (sel, id) {
             </select>
         `;
     } 
+    else if (tipo === 'status_motorista') { // NOVO BLOCO
+        wrapper.innerHTML = `
+            <select class="form-control" id="val-prem-${id}">
+                <option value="">Todos (Ativos e Inativos)</option>
+                <option value="true">Somente Ativos</option>
+                <option value="false">Somente Inativos</option>
+            </select>
+        `;
+    }
     else if (tipo === 'motorista') {
         const s = document.createElement('select');
         s.className = "form-control";
         s.id = `val-prem-${id}`;
-        let query = clienteSupabase.from('perfis').select('id, nome_completo').eq('funcao', 'motorista').eq('ativo', true);
+        
+        // [CORREÇÃO]: Removemos o .eq('ativo', true) para trazer o histórico completo
+        let query = clienteSupabase.from('perfis').select('id, nome_completo').eq('funcao', 'motorista');
+        
         if(unidadeId !== 'TODAS') query = query.eq('unidade_id', unidadeId);
+        
         const { data } = await query.order('nome_completo');
         s.innerHTML = '<option value="">Todos os Motoristas</option>';
         data?.forEach(m => s.innerHTML += `<option value="${m.id}">${m.nome_completo}</option>`);
+        
         wrapper.innerHTML = '';
         wrapper.appendChild(s);
     }
@@ -101,10 +117,15 @@ window.buscarDadosPremiacao = async function() {
 
     filtros.resumo += ` | Unidade: ${nomeUnidadeFiltro}`;
 
-    // [ALTERAÇÃO]: Incluída 'matricula' no select
+    // LÓGICA DO INNER JOIN: Necessário para filtrar dados da tabela referenciada
+    let joinMotorista = 'motorista:motorista_id';
+    if (filtros.status_motorista) {
+        joinMotorista = 'motorista:motorista_id!inner';
+    }
+
     let query = clienteSupabase.from('premiacoes_apuracoes').select(`
         *,
-        motorista:motorista_id (nome_completo, email, matricula),
+        ${joinMotorista} (nome_completo, email, matricula, ativo),
         unidade:unidade_id (nome),
         politica:premiacao_id (valor_maximo),
         itens:premiacoes_apuracoes_itens(*, config:item_config_id(topico, peso))
@@ -117,6 +138,12 @@ window.buscarDadosPremiacao = async function() {
     if (unidadeId !== 'TODAS') {
         query = query.eq('unidade_id', unidadeId);
     }
+    
+    // APLICA O NOVO FILTRO DE ATIVO/INATIVO
+    if (filtros.status_motorista) {
+        const isAtivo = filtros.status_motorista === 'true';
+        query = query.eq('motorista.ativo', isAtivo);
+    }
 
     const { data: lancamentos, error } = await query;
     if (error) throw error;
@@ -124,6 +151,7 @@ window.buscarDadosPremiacao = async function() {
 
     return { lancamentos, filtrosTexto: filtros.resumo };
 };
+
 /* =========================================================
    2. ORQUESTRADOR DE EXPORTAÇÃO
 ========================================================= */
@@ -516,7 +544,7 @@ window.desenharCabecalhoCorporativoPremiacao = async function(doc, titulo, info)
 };
 
 window.capturarFiltrosRelPremiacao = function() {
-    let obj = { resumo: "", motorista: null, competencia: null, status: null };
+    let obj = { resumo: "", motorista: null, competencia: null, status: null, status_motorista: null };
     let txt = [];
     document.querySelectorAll('#container-filtros-rel-premiacao .filter-row').forEach(row => {
         const selectTipo = row.querySelector('.filter-select');
@@ -524,9 +552,12 @@ window.capturarFiltrosRelPremiacao = function() {
         const el = row.querySelector(`#val-prem-${row.id.split('-')[2]}`); 
         if (el?.value) {
             obj[tipo] = el.value;
-            const label = el.tagName === 'SELECT' ? el.options[el.selectedIndex].text : el.value;
-            const labelFinal = (tipo === 'competencia') ? label.split('-').reverse().join('/') : label;
-            txt.push(`${tipo.toUpperCase()}: ${labelFinal}`);
+            let label = el.tagName === 'SELECT' ? el.options[el.selectedIndex].text : el.value;
+            
+            if (tipo === 'competencia') label = label.split('-').reverse().join('/');
+            
+            const tipoDisplay = tipo === 'status_motorista' ? 'STATUS COLAB.' : tipo.toUpperCase();
+            txt.push(`${tipoDisplay}: ${label}`);
         }
     });
     obj.resumo = txt.join(' | ') || "Geral";

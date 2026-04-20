@@ -378,15 +378,19 @@ window.configurarInputFiltroColeta = async function(sel, id) {
     const wrapper = document.getElementById(`wrapper-${id}`);
     if (!wrapper) return;
     
+    // Tenta preservar valor selecionado se já existir (para não resetar ao atualizar a lista)
+    const inputAtual = wrapper.querySelector('input, select');
+    const valorAnterior = inputAtual ? inputAtual.value : '';
+
     wrapper.innerHTML = '';
     const tipo = sel.value;
-    const unidadeId = document.getElementById('sel-unidade')?.value;
     let el;
 
     if (tipo === 'data') {
         el = document.createElement('input');
         el.type = 'date';
         el.className = 'form-control input-filtro-coleta';
+        if (valorAnterior) el.value = valorAnterior;
     }
     else if (tipo === 'status') {
         el = document.createElement('select');
@@ -397,6 +401,7 @@ window.configurarInputFiltroColeta = async function(sel, id) {
             <option value="Em Trânsito">Em Trânsito</option>
             <option value="Entregue">Entregue</option>
         `;
+        if (valorAnterior) el.value = valorAnterior;
     }
     else if (tipo === 'combustivel') {
         el = document.createElement('select');
@@ -408,40 +413,28 @@ window.configurarInputFiltroColeta = async function(sel, id) {
             <option value="Diesel S-500">Diesel S-500</option>
             <option value="Diesel S-10">Diesel S-10</option>
         `;
+        if (valorAnterior) el.value = valorAnterior;
     } 
     else if (tipo === 'motorista') {
         el = document.createElement('select');
         el.className = 'form-control input-filtro-coleta';
-        el.innerHTML = '<option value="">Carregando...</option>';
-
-        let query = clienteSupabase.from('perfis').select('nome_completo').eq('ativo', true).order('nome_completo');
-        if (unidadeId && unidadeId !== 'TODAS') query = query.eq('unidade_id', unidadeId);
-
-        query.then(({ data }) => {
-            el.innerHTML = '<option value="">Todos os Motoristas</option>';
-            if(data) {
-                const unicos = [...new Set(data.map(m => m.nome_completo))];
-                unicos.forEach(nome => { 
-                    el.innerHTML += `<option value="${nome}">${nome}</option>`; 
-                });
-            }
+        
+        const nomes = [...new Set(listaColetasGlobal.map(i => i.perfis ? i.perfis.nome_completo.trim() : null).filter(Boolean))].sort();
+        el.innerHTML = '<option value="">Todos os Motoristas</option>';
+        nomes.forEach(nome => { 
+            const isSelected = (nome === valorAnterior) ? 'selected' : '';
+            el.innerHTML += `<option value="${nome}" ${isSelected}>${nome}</option>`; 
         });
     } 
     else if (tipo === 'placa') {
         el = document.createElement('select');
         el.className = 'form-control input-filtro-coleta';
-        el.innerHTML = '<option value="">Carregando...</option>';
-
-        let query = clienteSupabase.from('veiculos').select('placa').eq('ativo', true).eq('tipo_veiculo', 'Cavalo').order('placa');
-        if (unidadeId && unidadeId !== 'TODAS') query = query.eq('unidade_id', unidadeId);
-
-        query.then(({ data }) => {
-            el.innerHTML = '<option value="">Todas as Placas</option>';
-            if(data) {
-                data.forEach(v => { 
-                    el.innerHTML += `<option value="${v.placa}">${v.placa}</option>`; 
-                });
-            }
+        
+        const placas = [...new Set(listaColetasGlobal.map(i => i.placa_cavalo ? i.placa_cavalo.trim() : null).filter(Boolean))].sort();
+        el.innerHTML = '<option value="">Todas as Placas</option>';
+        placas.forEach(placa => { 
+            const isSelected = (placa === valorAnterior) ? 'selected' : '';
+            el.innerHTML += `<option value="${placa}" ${isSelected}>${placa}</option>`; 
         });
     } 
     else {
@@ -449,19 +442,20 @@ window.configurarInputFiltroColeta = async function(sel, id) {
         el.type = 'text';
         el.className = 'form-control input-filtro-coleta';
         el.placeholder = 'Digite para buscar...';
+        if (valorAnterior) el.value = valorAnterior;
     }
     
-    // --- AJUSTE DE ALTURA E ESPAÇAMENTO PARA NÃO CORTAR O "g" ---
+    // --- AJUSTE DE ALTURA E ESPAÇAMENTO ---
     el.style.width = '100%';
-    el.style.minHeight = '38px'; // Aumentado levemente para garantir espaço vertical
-    el.style.height = 'auto';     // Permite que o campo cresça conforme o necessário
-    el.style.padding = '6px 12px'; // Padding padrão que centraliza o texto verticalmente
-    el.style.lineHeight = '1.5';   // Garante espaço para descendentes de letras (g, j, q, y)
+    el.style.minHeight = '38px'; 
+    el.style.height = 'auto';     
+    el.style.padding = '6px 12px'; 
+    el.style.lineHeight = '1.5';   
     el.style.fontSize = '0.9rem';
     el.style.boxSizing = 'border-box';
     
     if (el.tagName === 'SELECT') {
-        el.style.paddingRight = '30px'; // Espaço extra para a seta do navegador
+        el.style.paddingRight = '30px'; 
     }
 
     el.onchange = () => { aplicarFiltrosColeta(); };
@@ -644,11 +638,10 @@ window.carregarMotoristasPorUnidade = async function(unidadeId) {
     selMot.disabled = false;
 
     try {
-        // Trazemos também a tabela de vínculos (perfis_unidades) para verificar acessos múltiplos
+        
         const { data: motoristas, error } = await clienteSupabase
             .from('perfis')
-            .select('id, nome_completo, unidade_id, perfis_unidades(unidade_id)') 
-            .eq('ativo', true)
+            .select('id, nome_completo, unidade_id, ativo, perfis_unidades(unidade_id)') 
             .eq('funcao', 'motorista')
             .order('nome_completo');
 
@@ -657,26 +650,28 @@ window.carregarMotoristasPorUnidade = async function(unidadeId) {
         selMot.innerHTML = '<option value="">Selecione...</option>';
         
         if (motoristas && motoristas.length > 0) {
-            
-            // Filtra os motoristas com base na unidade alvo (lotação principal OU acessos vinculados)
             const filtrados = motoristas.filter(m => {
-                // 1. Regra Padrão: Pertence à unidade selecionada como lotação principal
                 if (String(m.unidade_id) === String(unidadeId)) return true;
-
-                // 2. Regra Dinâmica: Possui a unidade na sua lista de acessos secundários
-                if (m.perfis_unidades && m.perfis_unidades.some(link => String(link.unidade_id) === String(unidadeId))) {
-                    return true; 
-                }
-
+                if (m.perfis_unidades && m.perfis_unidades.some(link => String(link.unidade_id) === String(unidadeId))) return true;
                 return false;
             });
 
             if (filtrados.length > 0) {
-                // Ordena novamente para garantir a ordem alfabética após a filtragem relacional
                 filtrados.sort((a, b) => a.nome_completo.localeCompare(b.nome_completo));
 
+                // Deduplicação
+                const nomesVistos = new Set();
+
                 filtrados.forEach(m => {
-                    selMot.innerHTML += `<option value="${m.id}">${m.nome_completo}</option>`;
+                    const nomeLimpo = m.nome_completo.trim();
+                    if (!nomesVistos.has(nomeLimpo)) {
+                        nomesVistos.add(nomeLimpo);
+                        
+                        const statusAttr = m.ativo ? '' : 'disabled';
+                        const tagInativo = m.ativo ? '' : ' (Inativo)';
+                        
+                        selMot.innerHTML += `<option value="${m.id}" ${statusAttr}>${nomeLimpo}${tagInativo}</option>`;
+                    }
                 });
             } else {
                 selMot.innerHTML = '<option value="">Nenhum motorista nesta unidade</option>';
@@ -1028,7 +1023,6 @@ async function popularSelectsColeta() {
     const selUni = document.getElementById('col-unidade');
     const selPlaca = document.getElementById('col-placa');
     
-    // Define estado de carregamento visual
     if(selUni.options.length <= 1) selUni.innerHTML = '<option value="">Carregando...</option>';
     if(selPlaca.options.length <= 1) selPlaca.innerHTML = '<option value="">Carregando...</option>';
 
@@ -1036,22 +1030,25 @@ async function popularSelectsColeta() {
         // Dispara as duas requisições ao mesmo tempo
         const [resUnidades, resCavalos] = await Promise.all([
             clienteSupabase.from('unidades').select('id, nome').eq('ativo', true).order('nome'),
-            clienteSupabase.from('veiculos').select('id, placa, modelo').eq('ativo', true).eq('tipo_veiculo', 'Cavalo').order('placa')
+            
+            clienteSupabase.from('veiculos').select('id, placa, modelo, ativo').eq('tipo_veiculo', 'Cavalo').order('placa')
         ]);
 
-        // Popula Unidades
         selUni.innerHTML = '<option value="">Selecione...</option>';
         if (resUnidades.data) {
             resUnidades.data.forEach(u => selUni.innerHTML += `<option value="${u.id}">${u.nome}</option>`);
         }
 
-        // Popula Placas
         selPlaca.innerHTML = '<option value="">Selecione...</option>';
         if (resCavalos.data) {
-            resCavalos.data.forEach(v => selPlaca.innerHTML += `<option value="${v.placa}">${v.placa} - ${v.modelo}</option>`);
+            resCavalos.data.forEach(v => {
+                
+                const statusAttr = v.ativo ? '' : 'disabled';
+                const tagInativo = v.ativo ? '' : ' (Inativo)';
+                selPlaca.innerHTML += `<option value="${v.placa}" ${statusAttr}>${v.placa} - ${v.modelo}${tagInativo}</option>`;
+            });
         }
         
-        // Reset do Motorista
         const selMotorista = document.getElementById('col-motorista');
         if(selMotorista) {
             selMotorista.innerHTML = '<option value="">Selecione a unidade primeiro...</option>';
@@ -1069,52 +1066,12 @@ window.repopularFiltrosColeta = function() {
     if (!container) return;
 
     const linhas = container.querySelectorAll('.filter-row-coleta');
-    const unidadeId = document.getElementById('sel-unidade')?.value;
 
-    linhas.forEach(async (div) => {
-        const selectTipo = div.querySelector('select'); // O select do tipo (Status, Motorista...)
-        const wrapper = div.querySelector('div[id^="wrapper-"]');
-        const inputAtual = wrapper ? wrapper.querySelector('.input-filtro-coleta') : null;
-
-        // Só nos interessa se for um Select (Motorista/Placa) e se o input existir
-        if (!selectTipo || !inputAtual || inputAtual.tagName !== 'SELECT') return;
-
-        const tipo = selectTipo.value;
-        const valorSelecionado = inputAtual.value; // Salva o que estava selecionado
-
-        // Lógica de recarga para Motorista
-        if (tipo === 'motorista') {
-            let query = clienteSupabase.from('perfis').select('nome_completo').eq('ativo', true).order('nome_completo');
-            if (unidadeId && unidadeId !== 'TODAS') query = query.eq('unidade_id', unidadeId);
-            
-            const { data } = await query;
-            
-            inputAtual.innerHTML = '<option value="">Todos</option>';
-            if (data) {
-                const unicos = [...new Set(data.map(m => m.nome_completo))];
-                unicos.forEach(nome => {
-                    inputAtual.innerHTML += `<option value="${nome}">${nome}</option>`;
-                });
-            }
-            // Tenta restaurar a seleção (se o motorista existir na nova unidade)
-            inputAtual.value = valorSelecionado;
-        } 
-        
-        // Lógica de recarga para Placa
-        else if (tipo === 'placa') {
-            let query = clienteSupabase.from('veiculos').select('placa').eq('ativo', true).eq('tipo_veiculo', 'Cavalo').order('placa');
-            if (unidadeId && unidadeId !== 'TODAS') query = query.eq('unidade_id', unidadeId);
-
-            const { data } = await query;
-
-            inputAtual.innerHTML = '<option value="">Todas</option>';
-            if (data) {
-                data.forEach(v => {
-                    inputAtual.innerHTML += `<option value="${v.placa}">${v.placa}</option>`;
-                });
-            }
-            // Tenta restaurar a seleção
-            inputAtual.value = valorSelecionado;
+    linhas.forEach(div => {
+        const selectTipo = div.querySelector('select'); // O select do tipo (Motorista/Placa)
+        if (selectTipo && (selectTipo.value === 'motorista' || selectTipo.value === 'placa')) {
+            const id = div.id.replace('filter-', '');
+            configurarInputFiltroColeta(selectTipo, id);
         }
     });
 };

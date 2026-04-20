@@ -49,12 +49,15 @@ window.adicionarLinhaFiltroDiaria = function (tipoPadrao = "") {
     div.id = `row-diaria-${id}`;
     div.style = "display:flex; gap:10px; align-items:center; margin-bottom:8px;";
 
+    // Adicionado o 'status_motorista' na lista de options
     div.innerHTML = `
         <select class="filter-select" style="width:200px" onchange="window.configurarInputDiaria(this, '${id}')">
             <option value="" disabled ${!tipoPadrao ? 'selected' : ''}>Filtrar por...</option>
             <option value="competencia" ${tipoPadrao === 'competencia' ? 'selected' : ''}>Mês Competência</option>
             <option value="motorista">Motorista</option>
-            <option value="status">Status</option> </select>
+            <option value="status">Status Lançamento</option>
+            <option value="status_motorista">Status Colaborador</option> 
+        </select>
         <div id="wrapper-val-diaria-${id}" style="display:flex; gap:10px; flex:0 1 450px;">
             <input type="text" class="form-control" disabled placeholder="Selecione um filtro...">
         </div>
@@ -77,11 +80,21 @@ window.configurarInputDiaria = async function (sel, id) {
         const mesFmt = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}`;
         wrapper.innerHTML = `<input type="month" class="form-control" id="val-diaria-${id}" data-tipo="competencia" value="${mesFmt}">`;
     } 
-    else if (tipo === 'status') { // NOVO BLOCO
+    else if (tipo === 'status') { 
         wrapper.innerHTML = `
             <select class="form-control" id="val-diaria-${id}" data-tipo="status">
                 <option value="Aberto">Aberto</option>
                 <option value="Fechado">Fechado</option>
+            </select>
+        `;
+    }
+    
+    else if (tipo === 'status_motorista') {
+        wrapper.innerHTML = `
+            <select class="form-control" id="val-diaria-${id}" data-tipo="status_motorista">
+                <option value="">Todos (Ativos e Inativos)</option>
+                <option value="true">Somente Ativos</option>
+                <option value="false">Somente Inativos</option>
             </select>
         `;
     }
@@ -95,8 +108,7 @@ window.configurarInputDiaria = async function (sel, id) {
         
         let query = clienteSupabase.from('perfis')
             .select('id, nome_completo')
-            .eq('funcao', 'motorista')
-            .eq('ativo', true);
+            .eq('funcao', 'motorista');
 
         if (unidadeMestre !== 'TODAS') {
             query = query.eq('unidade_id', unidadeMestre);
@@ -121,6 +133,7 @@ window.buscarDadosDiarias = async function() {
     let competenciaSelecionada = "";
     let motoristaId = null;
     let statusFiltro = null;
+    let statusMotoristaFiltro = null; // NOVO: Armazena o estado (true/false)
     let filtrosTexto = [];
 
     // Captura de Filtros
@@ -138,7 +151,12 @@ window.buscarDadosDiarias = async function() {
         }
         if (el.dataset.tipo === "status" && el.value !== "") {
             statusFiltro = el.value;
-            filtrosTexto.push(`Status: ${statusFiltro}`);
+            filtrosTexto.push(`Status Lanç.: ${statusFiltro}`);
+        }
+        // NOVO: Captura Status Motorista
+        if (el.dataset.tipo === "status_motorista" && el.value !== "") {
+            statusMotoristaFiltro = el.value === 'true'; // converte a string para booleano
+            filtrosTexto.push(`Colaborador: ${statusMotoristaFiltro ? 'Ativos' : 'Inativos'}`);
         }
     });
 
@@ -160,18 +178,24 @@ window.buscarDadosDiarias = async function() {
     const dtIni = formatarISO(dataInicio);
     const dtFim = formatarISO(dataFim);
 
-    // --- NOVO: BUSCA OS VALORES DE ALIMENTAÇÃO DAS UNIDADES ---
+    // BUSCA OS VALORES DE ALIMENTAÇÃO DAS UNIDADES
     const { data: valoresData } = await clienteSupabase.from('valores_diarias').select('unidade_id, valor_alimentacao').eq('ativo', true);
     const mapValoresAli = {};
     if (valoresData) {
         valoresData.forEach(v => mapValoresAli[v.unidade_id] = parseFloat(v.valor_alimentacao || 0));
     }
 
-    // Query ao Supabase 
+    // [CORREÇÃO DE QUERY]: Adicionado o `!inner` para forçar o filtro no relacionamento
+    // Se o usuário selecionou Inativo, a query só trará linhas cuja FK motorista esteja inativa no cadastro
+    let innerText = 'motorista:perfis!diarias_lancamentos_perfil_id_fkey';
+    if (statusMotoristaFiltro !== null) {
+        innerText = `motorista:perfis!diarias_lancamentos_perfil_id_fkey!inner`;
+    }
+
     let queryBase = clienteSupabase.from('diarias_lancamentos').select(`
         data_referencia, tipo_consumo, valor_dia, status, 
-        motorista:perfis!diarias_lancamentos_perfil_id_fkey (
-            nome_completo, email, matricula, unidade_id, unidades(nome)
+        ${innerText} (
+            nome_completo, email, matricula, unidade_id, ativo, unidades(nome)
         )
     `, { count: 'exact' })
     .gte('data_referencia', dtIni)
@@ -180,6 +204,11 @@ window.buscarDadosDiarias = async function() {
     if (unidadeMestreRel !== 'TODAS') queryBase = queryBase.eq('unidade_id', unidadeMestreRel);
     if (motoristaId) queryBase = queryBase.eq('perfil_id', motoristaId);
     if (statusFiltro) queryBase = queryBase.eq('status', statusFiltro);
+    
+    // APLICA O FILTRO BOOLEANO DO PERFIL
+    if (statusMotoristaFiltro !== null) {
+        queryBase = queryBase.eq('motorista.ativo', statusMotoristaFiltro);
+    }
 
     queryBase = queryBase.order('data_referencia', { ascending: true });
 
@@ -221,7 +250,6 @@ window.buscarDadosDiarias = async function() {
         if (!unidadesMap[uNome]) unidadesMap[uNome] = {};
         
         if (!unidadesMap[uNome][mNome]) {
-            // Pega o valor da alimentação da unidade do motorista
             const valAli = mapValoresAli[uId] || 0;
 
             unidadesMap[uNome][mNome] = { 
@@ -229,9 +257,9 @@ window.buscarDadosDiarias = async function() {
                 matricula: mMatricula, 
                 logs: [], 
                 totais: {},
-                valorAlimentacao: valAli, // Salva para o PDF/Excel
+                valorAlimentacao: valAli, 
                 totalPix: 0,
-                totalCartao: valAli // Alimentação já entra direto no total do Cartão
+                totalCartao: valAli
             };
             totalGeralMotoristas++;
             totalGeralRelatorio += valAli;
@@ -253,11 +281,9 @@ window.buscarDadosDiarias = async function() {
         const valorLinha = (l.valor_dia || 0);
         unidadesMap[uNome][mNome].totais[tipoLabel].valor += valorLinha;
         
-        // --- SEPARAÇÃO INTELIGENTE DE PAGAMENTO ---
         if (tipo === 'diaria') {
             unidadesMap[uNome][mNome].totalPix += valorLinha;
         } else {
-            // Refeição, Jantar, Atestado pago... tudo pro cartão
             unidadesMap[uNome][mNome].totalCartao += valorLinha;
         }
         

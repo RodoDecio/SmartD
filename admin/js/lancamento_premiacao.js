@@ -66,10 +66,10 @@ window.inicializarLancamentoPremiacao = async function() {
 
 async function carregarDadosAuxiliaresPremiacao() {
     try {
+        // Busca TODOS (ativos e inativos) para termos o histórico completo
         const { data: perfis, error } = await clienteSupabase
             .from('perfis')
-            .select('id, nome_completo, unidade_id, funcao')
-            .eq('ativo', true)
+            .select('id, nome_completo, unidade_id, funcao, ativo') // Adicionado 'ativo'
             .order('nome_completo');
         
         if (error) throw error;
@@ -78,13 +78,13 @@ async function carregarDadosAuxiliaresPremiacao() {
             p.funcao && String(p.funcao).toLowerCase().includes('motorista')
         );
 
-        // CORREÇÃO: Após carregar o cache, força a atualização de qualquer select de motorista que já esteja na tela
         atualizarDropdownsFiltro();
         
     } catch (e) { 
         console.error("Erro ao carregar motoristas:", e); 
     }
 }
+
 // =============================================================================
 // 2. LISTAGEM
 // =============================================================================
@@ -435,35 +435,39 @@ function popularSelectMotoristasModalPremiacao(unidadeId = 'TODAS', motoristaIdP
     const sel = document.getElementById('input-modal-motorista');
     if (!sel) return;
 
-    // Limpa e adiciona a opção padrão
     sel.innerHTML = '<option value="">Selecione...</option>';
     
-    // Filtra os motoristas do cache específico de premiação
-    let lista = motoristasCachePremiacao || [];
+    // 1. Filtro Base: Apenas ATIVOS para novas inserções
+    let lista = motoristasCachePremiacao.filter(m => m.ativo === true);
     
     if (unidadeId && unidadeId !== 'TODAS' && unidadeId !== 'ALL') {
         lista = lista.filter(m => String(m.unidade_id) === String(unidadeId));
     }
 
-    // Ordenação alfabética
     lista.sort((a, b) => a.nome_completo.localeCompare(b.nome_completo));
 
-    // Se o motorista estiver selecionado mas não estiver na lista (por causa do filtro de unidade), 
-    // nós o adicionamos manualmente para evitar o erro de campo vazio.
+    // Se estiver editando e o motorista for inativo ou de outra unidade, força a inclusão dele para leitura
     if (motoristaIdPreSelecionado) {
         const existe = lista.find(m => String(m.id) === String(motoristaIdPreSelecionado));
         if (!existe) {
-            // Busca o motorista no cache global (sem filtro de unidade) para garantir a exibição
             const motOriginal = motoristasCachePremiacao.find(m => String(m.id) === String(motoristaIdPreSelecionado));
             if (motOriginal) lista.push(motOriginal);
         }
     }
 
+    // 2. Lógica de Deduplicação de Nomes
+    const nomesUnicos = new Set();
+    
     lista.forEach(m => {
-        const opt = document.createElement('option');
-        opt.value = m.id;
-        opt.innerText = m.nome_completo;
-        sel.appendChild(opt);
+        const nomeLimpo = m.nome_completo.trim();
+        if (!nomesUnicos.has(nomeLimpo)) {
+            nomesUnicos.add(nomeLimpo);
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            // Se foi forçado a entrar e é inativo, avisa na label (Apenas em edições antigas)
+            opt.innerText = m.ativo ? nomeLimpo : `${nomeLimpo} (Inativo)`;
+            sel.appendChild(opt);
+        }
     });
 }
 
@@ -1089,7 +1093,6 @@ window.configurarInputFiltroPremiacao = function(sel, id, valorInicial = null) {
     const wrapper = document.getElementById(`wrapper-val-prem-${id}`);
     const tipo = sel.value;
 
-    // Tenta preservar valor anterior ou usa o inicial passado
     const elAnterior = wrapper.querySelector('select, input');
     const valorAnterior = valorInicial ? valorInicial : (elAnterior ? elAnterior.value : '');
 
@@ -1119,6 +1122,8 @@ window.configurarInputFiltroPremiacao = function(sel, id, valorInicial = null) {
         s.onchange = triggerChange;
         
         const unidadeRodape = document.getElementById('sel-unidade')?.value;
+        
+        // 1. Usa a lista completa do cache (com inativos)
         let lista = motoristasCachePremiacao;
         
         if (unidadeRodape && unidadeRodape !== 'TODAS' && unidadeRodape !== 'ALL') {
@@ -1128,9 +1133,20 @@ window.configurarInputFiltroPremiacao = function(sel, id, valorInicial = null) {
         lista.sort((a,b) => a.nome_completo.localeCompare(b.nome_completo));
 
         s.innerHTML = '<option value="">Todos da Unidade</option>';
+        
+        // 2. Deduplicação e Tag de Inativo no Filtro
+        const nomesUnicos = new Set();
+        
         lista.forEach(m => {
-            const isSelected = String(m.id) === String(valorAnterior) ? 'selected' : '';
-            s.innerHTML += `<option value="${m.id}" ${isSelected}>${m.nome_completo}</option>`;
+            const nomeLimpo = m.nome_completo.trim();
+            if (!nomesUnicos.has(nomeLimpo)) {
+                nomesUnicos.add(nomeLimpo);
+                
+                const isSelected = String(m.id) === String(valorAnterior) ? 'selected' : '';
+                const tagInativo = m.ativo ? '' : ' (Inativo)';
+                
+                s.innerHTML += `<option value="${m.id}" ${isSelected}>${nomeLimpo}${tagInativo}</option>`;
+            }
         });
         
         wrapper.appendChild(s);

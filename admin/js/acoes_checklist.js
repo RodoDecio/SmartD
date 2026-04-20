@@ -1308,25 +1308,50 @@ window.abrirModalChecklistImpresso = async function() {
     const unidadeSel = selUnidRodape ? selUnidRodape.value : 'TODAS';
 
     try {
-        // 1. Carregar Motoristas
-        let queryMot = clienteSupabase.from('perfis').select('id, nome_completo').eq('ativo', true).order('nome_completo');
+        // 1. Carregar Motoristas (CORREÇÃO: Apenas Ativos E com função de Motorista)
+        let queryMot = clienteSupabase
+            .from('perfis')
+            .select('id, nome_completo')
+            .eq('ativo', true)
+            .eq('funcao', 'motorista') // Filtro crucial adicionado
+            .order('nome_completo');
+            
         if (unidadeSel !== 'TODAS') queryMot = queryMot.eq('unidade_id', unidadeSel);
         
         const selMot = document.getElementById('imp-motorista');
         selMot.innerHTML = '<option value="">Carregando...</option>';
         const { data: motoristas } = await queryMot;
+        
         selMot.innerHTML = '<option value="">Selecione o Motorista anotado...</option>';
-        if(motoristas) motoristas.forEach(m => selMot.innerHTML += `<option value="${m.id}">${m.nome_completo}</option>`);
+        if(motoristas) {
+            // Opcional: Filtro extra para evitar nomes duplicados na view
+            const nomesUnicos = new Set();
+            motoristas.forEach(m => {
+                const nomeLimpo = m.nome_completo.trim();
+                if (!nomesUnicos.has(nomeLimpo)) {
+                    nomesUnicos.add(nomeLimpo);
+                    selMot.innerHTML += `<option value="${m.id}">${nomeLimpo}</option>`;
+                }
+            });
+        }
 
-        // 2. Carregar Veículos
-        let queryVeic = clienteSupabase.from('veiculos').select('id, placa, modelo').eq('ativo', true).order('placa');
+        // 2. Carregar Veículos (CORREÇÃO: Garante trazer apenas Ativos)
+        let queryVeic = clienteSupabase
+            .from('veiculos')
+            .select('id, placa, modelo')
+            .eq('ativo', true) // Filtro de status do veículo
+            .order('placa');
+            
         if (unidadeSel !== 'TODAS') queryVeic = queryVeic.eq('unidade_id', unidadeSel);
 
         const selVeic = document.getElementById('imp-veiculo');
         selVeic.innerHTML = '<option value="">Carregando...</option>';
         const { data: veiculos } = await queryVeic;
+        
         selVeic.innerHTML = '<option value="">Selecione a Placa do Veículo...</option>';
-        if(veiculos) veiculos.forEach(v => selVeic.innerHTML += `<option value="${v.id}">${v.placa} - ${v.modelo}</option>`);
+        if(veiculos) {
+            veiculos.forEach(v => selVeic.innerHTML += `<option value="${v.id}">${v.placa} - ${v.modelo}</option>`);
+        }
 
         // 3. Limpa Modelos
         const selMod = document.getElementById('imp-modelo');

@@ -74,33 +74,16 @@ async function aoMudarUnidadeFerias() {
 
 async function carregarDadosAuxiliaresFerias() {
     try {
+
         const { data, error } = await clienteSupabase
             .from('perfis')
-            .select('id, nome_completo, unidade_id')
-            .eq('ativo', true);
+            .select('id, nome_completo, unidade_id, ativo')
+            .order('nome_completo');
 
         if (error) throw error;
 
-        // DEDUPLICAÇÃO POR NOME (Ignora logins diferentes para a mesma pessoa)
-        const mapPorNome = new Map();
-        
-        (data || []).forEach(p => {
-            if (p.nome_completo) {
-                // Normaliza o nome para evitar duplicatas por espaços ou casing
-                const chaveNome = p.nome_completo.trim().toUpperCase();
-                
-                // Só adiciona se esse nome ainda não existe na lista
-                if (!mapPorNome.has(chaveNome)) {
-                    mapPorNome.set(chaveNome, p);
-                }
-            }
-        });
-
-        // Converte de volta para array e ordena alfabeticamente
-        perfisCacheFerias = Array.from(mapPorNome.values());
-        perfisCacheFerias.sort((a, b) => 
-            a.nome_completo.localeCompare(b.nome_completo, 'pt-BR', { sensitivity: 'base' })
-        );
+        // Salva tudo no cache. A deduplicação será feita na UI.
+        perfisCacheFerias = data || [];
 
     } catch (e) {
         console.error("Erro ao carregar dados auxiliares:", e);
@@ -464,26 +447,40 @@ async function carregarColaboradoresFerias(selectElement, valorSelecionado = nul
     
     const unidadeSelecionada = document.getElementById('sel-unidade')?.value || 'TODAS';
     
-    // Filtra o cache global pela unidade selecionada
     let listaFiltrada = perfisCacheFerias;
-    if (unidadeSelecionada !== 'TODAS') {
+    if (unidadeSelecionada && unidadeSelecionada !== 'TODAS' && unidadeSelecionada !== 'ALL') {
         listaFiltrada = perfisCacheFerias.filter(p => String(p.unidade_id) === String(unidadeSelecionada));
     }
 
-    // Define placeholder baseado no contexto (Filtro vs Modal)
-    const isFiltro = selectElement.classList.contains('form-control-sm'); // Assumindo classe do filtro
+    // Identifica se a função foi chamada pela barra de pesquisa ou pelo modal de nova solicitação
+    const isFiltro = selectElement.classList.contains('form-control-sm'); 
     const placeholder = isFiltro ? 'Todos' : 'Selecione...';
 
     let html = `<option value="">${placeholder}</option>`;
     
-    if (listaFiltrada.length > 0) {
-        listaFiltrada.forEach(p => {
+    // --- LÓGICA DE DEDUPLICAÇÃO E BLOQUEIO DE INATIVOS ---
+    const nomesVistos = new Set();
+
+    listaFiltrada.forEach(p => {
+        const nomeLimpo = p.nome_completo ? p.nome_completo.trim() : 'Desconhecido';
+
+        if (!isFiltro) {
+           
+            if (!p.ativo && String(p.id) !== String(valorSelecionado)) {
+                return;
+            }
+        }
+
+        // Garante nomes únicos na visualização
+        if (!nomesVistos.has(nomeLimpo)) {
+            nomesVistos.add(nomeLimpo);
+            
             const selected = String(p.id) === String(valorSelecionado) ? 'selected' : '';
-            html += `<option value="${p.id}" data-unidade="${p.unidade_id}" ${selected}>${p.nome_completo}</option>`;
-        });
-    } else {
-        html += `<option value="" disabled>Nenhum colaborador nesta unidade</option>`;
-    }
+            const tagInativo = p.ativo ? '' : ' (Inativo)'; // Tag visual
+            
+            html += `<option value="${p.id}" data-unidade="${p.unidade_id}" ${selected}>${nomeLimpo}${tagInativo}</option>`;
+        }
+    });
 
     selectElement.innerHTML = html;
 }

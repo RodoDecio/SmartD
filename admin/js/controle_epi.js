@@ -198,11 +198,19 @@ function configurarInputFiltroEntrega(select, id) {
     if (tipo === 'colaborador') {
         const sel = document.createElement('select');
         sel.className = 'filter-select';
-        const nomesUnicos = [...new Set(listaEntregasCache.map(i => i.perfis ? i.perfis.nome_completo : '').filter(n => n))].sort();
+        
+        // [CORREÇÃO]: Garante que o nome exista e limpa os espaços em branco para o Set funcionar perfeitamente
+        const todosNomes = listaEntregasCache
+            .map(i => i.perfis ? i.perfis.nome_completo.trim() : null)
+            .filter(Boolean); // Filtra nulos/vazios
+            
+        const nomesUnicos = [...new Set(todosNomes)].sort();
+        
         sel.innerHTML = '<option value="">Todos</option>';
         nomesUnicos.forEach(nome => {
             sel.innerHTML += `<option value="${nome}">${nome}</option>`;
         });
+        
         sel.onchange = aplicarFiltrosEntrega;
         wrapper.appendChild(sel);
     } 
@@ -330,10 +338,10 @@ async function carregarColaboradores(elementId) {
     const unidadeSelecionada = document.getElementById('sel-unidade')?.value;
 
     try {
+    
         let query = clienteSupabase
             .from('perfis')
-            .select('id, nome_completo, unidade_id, matricula') 
-            .eq('ativo', true)
+            .select('id, nome_completo, unidade_id, matricula, ativo') 
             .order('nome_completo');
         
         if (unidadeSelecionada && unidadeSelecionada !== 'TODAS') {
@@ -344,18 +352,24 @@ async function carregarColaboradores(elementId) {
         sel.innerHTML = '<option value="">Selecione...</option>';
         
         if (data) {
-            // --- LÓGICA DE FILTRAGEM DE NOMES DUPLICADOS ---
             const nomesVistos = new Set();
             
             data.forEach(p => {
                 const nomeLimpo = p.nome_completo.trim();
                 
-                // Só adiciona ao select se o nome ainda não foi processado
+                if (!p.ativo && String(p.id) !== String(valorAtual)) {
+                    return; // Pula este loop
+                }
+
                 if (!nomesVistos.has(nomeLimpo)) {
                     nomesVistos.add(nomeLimpo);
                     
                     const mat = p.matricula ? p.matricula : 'N/D';
-                    sel.innerHTML += `<option value="${p.id}" data-matricula="${mat}">${nomeLimpo}</option>`;
+                    
+                    // Aviso visual se for inativo e estiver sendo editado
+                    const tagInativo = p.ativo ? '' : ' (Inativo)';
+                    
+                    sel.innerHTML += `<option value="${p.id}" data-matricula="${mat}">${nomeLimpo}${tagInativo}</option>`;
                 }
             });
             

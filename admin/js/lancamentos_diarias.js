@@ -17,6 +17,7 @@ let callbackAlertaVazios = null;
 const LABELS_TIPO = {
     'diaria': 'Diária',
     'refeicao': 'Refeição',
+    'refeicao_janta': 'Alm+Jan',
     'folga': 'Folga',
     'atestado': 'Atestado',
     'ferias': 'Férias',
@@ -73,11 +74,10 @@ async function inicializarLancamentosDiarias() {
 
 async function carregarDadosAuxiliares() {
     try {
-        // [CORREÇÃO] Adicionamos 'matricula' explicitamente na busca
+
         const { data: perfis } = await clienteSupabase
             .from('perfis')
-            .select('id, nome_completo, unidade_id, funcao, matricula') 
-            .eq('ativo', true)
+            .select('id, nome_completo, unidade_id, funcao, matricula, ativo') 
             .order('nome_completo');
         
         usuariosCache = {};
@@ -87,10 +87,10 @@ async function carregarDadosAuxiliares() {
             });
         }
         
-        // Filtra motoristas e garante que a matrícula esteja acessível
+        // motoristasCache agora tem TODOS os motoristas (Ativos e Inativos)
         motoristasCache = (perfis || []).filter(p => p.funcao && p.funcao.toLowerCase() === 'motorista');
 
-        // Valores e Unidades
+        // Valores e Unidades continuam buscando apenas ativos normalmente
         const { data: valores } = await clienteSupabase.from('valores_diarias').select('*').eq('ativo', true);
         valoresDiariasCache = {};
         if (valores) {
@@ -439,14 +439,21 @@ function popularSelectMotoristasModal() {
     const unidadeFiltro = document.getElementById('sel-unidade')?.value || 'TODAS';
     
     sel.innerHTML = '<option value="">Selecione...</option>';
-    let lista = motoristasCache;
+    
+    let lista = motoristasCache.filter(m => m.ativo === true);
     
     if (unidadeFiltro !== 'TODAS' && unidadeFiltro !== 'ALL') {
         lista = lista.filter(m => String(m.unidade_id) === String(unidadeFiltro));
     }
     
+    const nomesUnicos = new Set();
+    
     lista.forEach(m => {
-        sel.innerHTML += `<option value="${m.id}" data-unidade="${m.unidade_id}">${m.nome_completo}</option>`;
+        const nomeLimpo = m.nome_completo.trim();
+        if (!nomesUnicos.has(nomeLimpo)) {
+            nomesUnicos.add(nomeLimpo);
+            sel.innerHTML += `<option value="${m.id}" data-unidade="${m.unidade_id}">${nomeLimpo}</option>`;
+        }
     });
 
     const newSel = sel.cloneNode(true);
@@ -614,6 +621,7 @@ async function carregarGradeCalendario() {
                         <option value="">--</option>
                         <option value="diaria" ${val==='diaria'?'selected':''}>Diária</option>
                         <option value="refeicao" ${val==='refeicao'?'selected':''}>Refeição</option>
+                        <option value="refeicao_janta" ${val==='refeicao_janta'?'selected':''}>Alm + Jan</option>
                         <option value="folga" ${val==='folga'?'selected':''}>Folga</option>
                         <option value="atestado" ${val==='atestado'?'selected':''}>Atestado</option>
                         <option value="ferias" ${val==='ferias'?'selected':''}>Férias</option>
@@ -1067,7 +1075,7 @@ function configurarInputFiltroDiaria(sel, id, valorInicial = null) {
     const wrapper = document.getElementById(`wrapper-val-dia-${id}`);
     const tipo = sel.value;
     
-    // Tenta preservar valor anterior se o usuário estiver trocando manualmente e não passou valorInicial
+  
     const elAnterior = wrapper.querySelector('select, input');
     const valorAnterior = valorInicial ? valorInicial : (elAnterior ? elAnterior.value : '');
 
@@ -1097,7 +1105,6 @@ function configurarInputFiltroDiaria(sel, id, valorInicial = null) {
         i.style.cssText = styleStr;
         i.onchange = triggerChange;
         
-        // [CORREÇÃO] Aplica o valor padrão calculado
         if(valorAnterior) i.value = valorAnterior;
         
         wrapper.appendChild(i);
@@ -1109,6 +1116,8 @@ function configurarInputFiltroDiaria(sel, id, valorInicial = null) {
         s.onchange = triggerChange;
 
         const unidadeRodape = document.getElementById('sel-unidade')?.value;
+        
+
         let lista = motoristasCache;
 
         if (unidadeRodape && unidadeRodape !== 'TODAS' && unidadeRodape !== 'ALL') {
@@ -1118,9 +1127,19 @@ function configurarInputFiltroDiaria(sel, id, valorInicial = null) {
         lista.sort((a, b) => a.nome_completo.localeCompare(b.nome_completo));
 
         s.innerHTML = '<option value="">Todos da Unidade</option>';
+        
+        const nomesUnicos = new Set();
+        
         lista.forEach(m => {
-            const isSelected = String(m.id) === String(valorAnterior) ? 'selected' : '';
-            s.innerHTML += `<option value="${m.id}" ${isSelected}>${m.nome_completo}</option>`;
+            const nomeLimpo = m.nome_completo.trim();
+            if (!nomesUnicos.has(nomeLimpo)) {
+                nomesUnicos.add(nomeLimpo);
+                
+                const isSelected = String(m.id) === String(valorAnterior) ? 'selected' : '';
+                const tagInativo = m.ativo ? '' : ' (Inativo)'; // Tag visual
+                
+                s.innerHTML += `<option value="${m.id}" ${isSelected}>${nomeLimpo}${tagInativo}</option>`;
+            }
         });
         
         wrapper.appendChild(s);

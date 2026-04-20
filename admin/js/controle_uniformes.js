@@ -163,9 +163,19 @@ function configInputFiltroUni(select, id) {
     if (tipo === 'colaborador') {
         const sel = document.createElement('select');
         sel.className = 'filter-select';
-        const nomes = [...new Set(listaEntregasUniCache.map(i => i.perfis ? i.perfis.nome_completo : '').filter(n => n))].sort();
+        
+        // Garante que o nome exista e limpa os espaços em branco para o Set funcionar
+        const todosNomes = listaEntregasUniCache
+            .map(i => i.perfis ? i.perfis.nome_completo.trim() : null)
+            .filter(Boolean); // Filtra nulos/vazios
+            
+        const nomesUnicos = [...new Set(todosNomes)].sort();
+        
         sel.innerHTML = '<option value="">Todos</option>';
-        nomes.forEach(n => sel.innerHTML += `<option value="${n}">${n}</option>`);
+        nomesUnicos.forEach(nome => {
+            sel.innerHTML += `<option value="${nome}">${nome}</option>`;
+        });
+        
         sel.onchange = aplicarFiltrosUniforme;
         wrapper.appendChild(sel);
     } else {
@@ -284,25 +294,49 @@ async function carregarColaboradoresUni(elementId) {
     const unidadeSelecionada = document.getElementById('sel-unidade')?.value;
 
     try {
-        let query = clienteSupabase.from('perfis').select('id, nome_completo, matricula, unidade_id').eq('ativo', true).order('nome_completo');
-        if (unidadeSelecionada && unidadeSelecionada !== 'TODAS') query = query.eq('unidade_id', unidadeSelecionada);
+        // Remove .eq('ativo', true) para gerenciar no front
+        let query = clienteSupabase
+            .from('perfis')
+            .select('id, nome_completo, matricula, unidade_id, ativo') 
+            .order('nome_completo');
+        
+        if (unidadeSelecionada && unidadeSelecionada !== 'TODAS') {
+            query = query.eq('unidade_id', unidadeSelecionada);
+        }
 
-        const { data } = await query;
+        const { data, error } = await query;
+        
+        if (error) throw error;
+
         sel.innerHTML = '<option value="">Selecione...</option>';
         
         if (data) {
-            const nomesVistos = new Set(); // Filtro de duplicatas
+            const nomesVistos = new Set(); 
+            
             data.forEach(p => {
                 const nomeLimpo = p.nome_completo.trim();
+                
+                // LÓGICA: Se é inativo E NÃO for o dono do registro atual em edição, pula.
+                if (!p.ativo && String(p.id) !== String(valorAtual)) {
+                    return; 
+                }
+
                 if (!nomesVistos.has(nomeLimpo)) {
                     nomesVistos.add(nomeLimpo);
+                    
                     const mat = p.matricula ? p.matricula : 'N/D';
-                    sel.innerHTML += `<option value="${p.id}" data-matricula="${mat}">${nomeLimpo}</option>`;
+                    const tagInativo = p.ativo ? '' : ' (Inativo)';
+                    
+                    sel.innerHTML += `<option value="${p.id}" data-matricula="${mat}">${nomeLimpo}${tagInativo}</option>`;
                 }
             });
-            if (valorAtual) sel.value = valorAtual;
+            
+            if(valorAtual) sel.value = valorAtual;
         }
-    } catch(e) { console.error(e); }
+    } catch(e) { 
+        console.error("Erro ao carregar colaboradores:", e); 
+        sel.innerHTML = '<option value="">Erro ao carregar</option>';
+    }
 }
 
 function fecharModalRegistroUniforme() {
