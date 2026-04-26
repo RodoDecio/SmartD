@@ -17,7 +17,7 @@ function carregarVersao() {
     if (!infoText) return;
 
     // 1. ALTERE A VERSÃO MANUALMENTE AQUI QUANDO DESEJAR (ex: "1.4.2", "1.5.0")
-    const versaoManual = "1.9.1"; 
+    const versaoManual = "1.2.0"; 
 
     // 2. DATA AUTOMÁTICA DO DEPLOY
     // O navegador lê a data em que o arquivo foi modificado no servidor pelo Vercel
