@@ -6,12 +6,15 @@ let formDiariaSujo = false;
 let dadosOriginaisDiaria = null;
 
 function inicializarDiarias(unidadeId) {
-    document.getElementById('titulo-pagina').innerText = 'Valores de Diárias e Alimentação (CCT)';
+    document.getElementById('titulo-pagina').innerText = 'Valores de Diárias, Refeição e Alimentação (CCT)';
     
     configurarFormularioDiaria();
     carregarUnidadesSelect(); 
+    
+    // Passamos o ID recebido (do rodapé) para a listagem
     listarDiarias(unidadeId);
 
+    // VINCULA O INPUT DE BUSCA (Texto)
     const inputBusca = document.getElementById('input-busca');
     if (inputBusca) {
         const novoInput = inputBusca.cloneNode(true);
@@ -21,6 +24,8 @@ function inicializarDiarias(unidadeId) {
         novoInput.addEventListener('keyup', (e) => filtrarDiarias(e.target.value));
     }
 }
+
+// --- DADOS ---
 
 async function carregarUnidadesSelect() {
     const { data } = await clienteSupabase.from('unidades').select('id, nome').eq('ativo', true).order('nome');
@@ -38,9 +43,10 @@ async function carregarUnidadesSelect() {
 async function listarDiarias(unidadeId = null) {
     const tbody = document.getElementById('tbody-diarias');
     if(!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="6" class="text-center"><i class="fas fa-spinner fa-spin"></i> Carregando...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center"><i class="fas fa-spinner fa-spin"></i> Carregando...</td></tr>';
 
     try {
+        // Se não veio por parâmetro, tenta pegar do seletor do rodapé como fallback
         if (!unidadeId) {
             unidadeId = document.getElementById('sel-unidade')?.value || "TODAS";
         }
@@ -50,11 +56,13 @@ async function listarDiarias(unidadeId = null) {
             .select('*, unidades(nome)')
             .order('unidade_id');
 
+        // --- APLICA O FILTRO DO RODAPÉ ---
         if (unidadeId !== "TODAS" && unidadeId) {
             query = query.eq('unidade_id', unidadeId);
         }
 
         const { data, error } = await query;
+
         if (error) throw error;
         listaDiarias = data || [];
         atualizarTabelaDiarias(listaDiarias);
@@ -62,6 +70,7 @@ async function listarDiarias(unidadeId = null) {
     } catch (err) {
         console.error(err);
         mostrarToast("Erro ao carregar valores.", "error");
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Erro ao carregar dados.</td></tr>';
     }
 }
 
@@ -72,7 +81,7 @@ function atualizarTabelaDiarias(lista) {
     document.getElementById('lbl-contagem-diarias').innerHTML = `Total: <strong>${lista.length}</strong>`;
 
     if (lista.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center p-3">Nenhum registro encontrado.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center p-3">Nenhum registro encontrado.</td></tr>';
         return;
     }
 
@@ -89,7 +98,7 @@ function atualizarTabelaDiarias(lista) {
             <td><b>${nomeUnidade}</b></td>
             <td>${fmt(d.valor_refeicao)}</td>
             <td>${fmt(d.valor_diaria)}</td>
-            <td>${fmt(d.valor_alimentacao)}</td>
+            <td>${fmt(d.valor_alimentacao)}</td> 
             <td><span class="badge ${classeBadge}">${isAtivo ? 'ATIVO' : 'INATIVO'}</span></td>
             <td style="white-space: nowrap;">
                 <button class="action-btn" onclick="visualizarDiaria('${d.id}')" title="Visualizar"><i class="fas fa-eye" style="color: #003399;"></i></button>
@@ -102,7 +111,32 @@ function atualizarTabelaDiarias(lista) {
     });
 }
 
-function abrirModalDiaria(id = null) {
+function filtrarDiarias(texto) {
+    const termo = texto.toLowerCase();
+    const filtrados = listaDiarias.filter(d =>
+        (d.unidades && d.unidades.nome.toLowerCase().includes(termo))
+    );
+    atualizarTabelaDiarias(filtrados);
+}
+
+// --- MODAL, SALVAR E VISUALIZAR ---
+
+window.visualizarDiaria = function(id) {
+    abrirModalDiaria(id);
+    document.getElementById('titulo-modal-diaria').innerText = 'Visualizar Valor';
+    const form = document.getElementById('form-diaria');
+    form.querySelectorAll('input, select').forEach(el => el.disabled = true);
+    
+    const btnSalvar = form.querySelector('button[type="submit"]');
+    if(btnSalvar) btnSalvar.style.display = 'none';
+    
+    const btnCancel = form.querySelector('.btn-cancel');
+    btnCancel.innerText = 'Fechar';
+    
+    form.classList.add('modo-visualizacao');
+}
+
+window.abrirModalDiaria = function(id = null) {
     formDiariaSujo = false;
     dadosOriginaisDiaria = null; 
     
@@ -116,6 +150,7 @@ function abrirModalDiaria(id = null) {
     
     const btnSalvar = form.querySelector('button[type="submit"]');
     if(btnSalvar) btnSalvar.style.display = 'block';
+    form.querySelector('.btn-cancel').innerText = 'Cancelar';
 
     if (id) {
         document.getElementById('titulo-modal-diaria').innerText = 'Editar Valor';
@@ -126,24 +161,24 @@ function abrirModalDiaria(id = null) {
             
             const valRef = parseFloat(d.valor_refeicao || 0).toFixed(2);
             const valDia = parseFloat(d.valor_diaria || 0).toFixed(2);
-            const valAli = parseFloat(d.valor_alimentacao || 0).toFixed(2);
+            const valAli = parseFloat(d.valor_alimentacao || 0).toFixed(2); 
 
             document.getElementById('dia-vlr-refeicao').value = valRef;
             document.getElementById('dia-vlr-diaria').value = valDia;
-            document.getElementById('dia-vlr-alimentacao').value = valAli;
+            document.getElementById('dia-vlr-alimentacao').value = valAli; 
 
             dadosOriginaisDiaria = {
                 unidade: String(d.unidade_id),
                 refeicao: valRef,
                 diaria: valDia,
-                alimentacao: valAli
+                alimentacao: valAli 
             };
         }
     } else {
         document.getElementById('titulo-modal-diaria').innerText = 'Novo Valor CCT';
         document.getElementById('dia-vlr-refeicao').value = "0.00";
         document.getElementById('dia-vlr-diaria').value = "0.00";
-        document.getElementById('dia-vlr-alimentacao').value = "0.00";
+        document.getElementById('dia-vlr-alimentacao').value = "0.00"; 
     }
     modal.classList.add('active');
 }
@@ -151,20 +186,24 @@ function abrirModalDiaria(id = null) {
 async function salvarDiaria(e) {
     e.preventDefault();
     const btn = e.submitter;
+    
+    if(btn.style.display === 'none') return;
+
     const id = document.getElementById('dia-id').value;
     const unidadeId = document.getElementById('dia-unidade').value;
     
     const vRef = parseFloat(document.getElementById('dia-vlr-refeicao').value || 0).toFixed(2);
     const vDia = parseFloat(document.getElementById('dia-vlr-diaria').value || 0).toFixed(2);
-    const vAli = parseFloat(document.getElementById('dia-vlr-alimentacao').value || 0).toFixed(2);
+    const vAli = parseFloat(document.getElementById('dia-vlr-alimentacao').value || 0).toFixed(2); 
 
     if (id && dadosOriginaisDiaria) {
         const nadaMudou = (
             unidadeId === dadosOriginaisDiaria.unidade &&
             vRef === dadosOriginaisDiaria.refeicao &&
             vDia === dadosOriginaisDiaria.diaria &&
-            vAli === dadosOriginaisDiaria.alimentacao
+            vAli === dadosOriginaisDiaria.alimentacao 
         );
+
         if (nadaMudou) {
             mostrarToast("Nenhuma alteração detectada.", "warning");
             return;
@@ -180,28 +219,40 @@ async function salvarDiaria(e) {
             unidade_id: unidadeId,
             valor_refeicao: vRef,
             valor_diaria: vDia,
-            valor_alimentacao: vAli
+            valor_alimentacao: vAli 
         };
 
-        let logAcao = id ? 'UPDATE' : 'INSERT';
+        let logAcao = '';
+        let dadosAntigos = null;
         let idRegistro = id;
 
         if (id) {
+            logAcao = 'UPDATE';
+            const { data: antigo } = await clienteSupabase.from('valores_diarias').select('*, unidades(nome)').eq('id', id).single();
+            dadosAntigos = antigo;
+            
             await clienteSupabase.from('valores_diarias').update(dadosNovos).eq('id', id);
         } else {
+            logAcao = 'INSERT';
             dadosNovos.ativo = true;
             const { data } = await clienteSupabase.from('valores_diarias').insert([dadosNovos]).select();
             if(data) idRegistro = data[0].id;
         }
 
-        // Auditoria
+        let nomeUnidadeNova = 'Unidade ID ' + dadosNovos.unidade_id;
+        const unidadeObj = listaUnidadesDiarias.find(u => u.id == dadosNovos.unidade_id);
+        if(unidadeObj) nomeUnidadeNova = unidadeObj.nome;
+
+        const dadosNovosLog = { ...dadosNovos, nome_unidade_visual: nomeUnidadeNova };
+
         const user = (await clienteSupabase.auth.getUser()).data.user;
         await clienteSupabase.from('logs_auditoria').insert([{
             tabela_afetada: 'valores_diarias',
             acao: logAcao,
             id_registro_afetado: idRegistro,
             usuario_id: user?.id,
-            dados_novos: JSON.stringify(dadosNovos),
+            dados_antigos: dadosAntigos ? JSON.stringify(dadosAntigos) : null,
+            dados_novos: JSON.stringify(dadosNovosLog),
             data_hora: new Date().toISOString()
         }]);
 
@@ -217,6 +268,47 @@ async function salvarDiaria(e) {
     }
 }
 
+window.alternarStatusDiaria = function(id, statusAtual) {
+    const acaoTxt = statusAtual ? 'Inativar' : 'Ativar';
+    const msg = `Deseja realmente <b>${acaoTxt.toUpperCase()}</b> os valores desta unidade?`;
+    const corBotao = statusAtual ? '#dc3545' : '#28a745'; // Vermelho para inativar, Verde para ativar
+
+    if (typeof solicitarConfirmacao === 'function') {
+        // Chama a função global para abrir o modal
+        solicitarConfirmacao(() => executarAlternanciaStatus(id, statusAtual));
+        
+        // TRUQUE SEGURO: Atraso mínimo para o modal renderizar na tela
+        setTimeout(() => {
+            const modaisAtivos = document.querySelectorAll('.active'); 
+            modaisAtivos.forEach(modal => {
+                
+                // 1. Pega todos os elementos dentro do modal
+                const elementos = modal.querySelectorAll('*');
+                elementos.forEach(el => {
+                    // Substitui o texto SOMENTE se o elemento NÃO contiver os botões dentro dele
+                    if ((el.innerText.includes('alterações não salvas') || el.innerText.includes('valores desta unidade')) && el.querySelector('button') === null) {
+                        el.innerHTML = msg;
+                    }
+                });
+
+                // 2. Troca apenas o texto e a cor do botão principal de ação
+                modal.querySelectorAll('button').forEach(btn => {
+                    const txtBtn = btn.innerText.trim();
+                    if (txtBtn === 'Descartar' || txtBtn === 'Inativar' || txtBtn === 'Ativar') {
+                        btn.innerText = acaoTxt;
+                        btn.style.backgroundColor = corBotao;
+                        btn.style.color = '#fff';
+                        btn.style.borderColor = corBotao; // Garante que a borda acompanhe a cor
+                    }
+                });
+            });
+        }, 15);
+    } else {
+        // Fallback de segurança usando o nativo caso a função customizada falhe
+        if (confirm(msg.replace(/<b>|<\/b>/g, ''))) executarAlternanciaStatus(id, statusAtual);
+    }
+};
+
 window.fecharModalDiaria = function(force = false) {
     const isVis = document.getElementById('form-diaria').classList.contains('modo-visualizacao');
     if (isVis) force = true;
@@ -224,6 +316,28 @@ window.fecharModalDiaria = function(force = false) {
     if(!force && formDiariaSujo) {
         if(typeof solicitarConfirmacao === 'function') {
             solicitarConfirmacao(() => fecharModalDiaria(true));
+            
+            // RESTAURA O TEXTO ORIGINAL DO MODAL COM SEGURANÇA
+            setTimeout(() => {
+                const modaisAtivos = document.querySelectorAll('.active');
+                modaisAtivos.forEach(modal => {
+                    const elementos = modal.querySelectorAll('*');
+                    elementos.forEach(el => {
+                        if ((el.innerText.includes('valores desta unidade') || el.innerText.includes('alterações não salvas')) && el.querySelector('button') === null) {
+                            el.innerHTML = 'Existem alterações não salvas. Descartar?';
+                        }
+                    });
+                    
+                    modal.querySelectorAll('button').forEach(btn => {
+                        const txtBtn = btn.innerText.trim();
+                        if (txtBtn === 'Ativar' || txtBtn === 'Inativar' || txtBtn === 'Descartar') {
+                            btn.innerText = 'Descartar';
+                            btn.style.backgroundColor = '#dc3545'; // Retorna pro vermelho padrão
+                            btn.style.borderColor = '#dc3545';
+                        }
+                    });
+                });
+            }, 15);
         } else {
             if(confirm("Existem alterações não salvas. Deseja sair mesmo assim?")) {
                 fecharModalDiaria(true);
@@ -244,14 +358,66 @@ function configurarFormularioDiaria() {
     
     newForm.querySelectorAll('input, select').forEach(el => el.addEventListener('change', () => formDiariaSujo = true));
 
+    // Removido o campo do jantar desta matriz de listeners
     ['dia-vlr-refeicao', 'dia-vlr-diaria', 'dia-vlr-alimentacao'].forEach(id => {
         const input = document.getElementById(id);
         if(input) {
             input.addEventListener('blur', function() {
-                this.value = this.value ? parseFloat(this.value).toFixed(2) : "0.00";
+                if(this.value) {
+                    this.value = parseFloat(this.value).toFixed(2);
+                } else {
+                    this.value = "0.00";
+                }
             });
         }
     });
+}
+
+// --- HISTÓRICO DETALHADO ---
+
+window.abrirModalLogsDiaria = async function(idRegistro) {
+    const modal = document.getElementById('modal-logs');
+    const container = document.getElementById('timeline-logs');
+    document.getElementById('titulo-modal-logs').innerText = 'Histórico de Valores';
+    
+    container.innerHTML = '<div style="text-align:center; padding:20px"><i class="fas fa-spinner fa-spin"></i> Buscando...</div>';
+    modal.classList.add('active');
+
+    try {
+        const { data: logs } = await clienteSupabase
+            .from('logs_auditoria')
+            .select('*, perfis(nome_completo)')
+            .eq('tabela_afetada', 'valores_diarias')
+            .eq('id_registro_afetado', idRegistro)
+            .order('data_hora', { ascending: false });
+
+        container.innerHTML = '';
+        if(!logs || logs.length === 0) {
+            container.innerHTML = '<p style="text-align:center;color:#777">Sem histórico.</p>';
+            return;
+        }
+
+        logs.forEach(log => {
+            const item = document.createElement('div');
+            item.className = 'log-item';
+            const nomeUser = log.perfis ? log.perfis.nome_completo : 'Sistema';
+            
+            let diff = '';
+            if (log.acao === 'INSERT') diff = '<div class="log-diff" style="color:green">Definiu os valores iniciais.</div>';
+            else if (log.acao === 'UPDATE') diff = gerarDiffDiarias(log.dados_antigos, log.dados_novos);
+            else if (log.acao === 'UPDATE_STATUS') {
+                const s = JSON.parse(log.dados_novos).ativo ? 'ATIVO' : 'INATIVO';
+                diff = `<div class="log-diff">Status alterado para <b>${s}</b></div>`;
+            }
+
+            item.innerHTML = `
+                <div class="log-header">${new Date(log.data_hora).toLocaleString('pt-BR')} por <span style="color:#003399">${nomeUser}</span></div>
+                <div class="log-action">${log.acao}</div>
+                ${diff}
+            `;
+            container.appendChild(item);
+        });
+    } catch(e) { console.error(e); }
 }
 
 function gerarDiffDiarias(antigoStr, novoStr) {
@@ -259,17 +425,49 @@ function gerarDiffDiarias(antigoStr, novoStr) {
     const ant = JSON.parse(antigoStr);
     const nov = JSON.parse(novoStr);
     let html = '';
+    
     const formatar = (v) => parseFloat(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    const arrow = ' <i class="fas fa-arrow-right"></i> ';
+
+    const nomeAnt = ant.unidades ? ant.unidades.nome : (ant.nome_unidade_visual || ant.unidade_id);
+    const nomeNov = nov.unidades ? nov.unidades.nome : (nov.nome_unidade_visual || nov.unidade_id);
+    
+    if (ant.unidade_id != nov.unidade_id) {
+        html += `<div class="log-diff"><b>Unidade:</b> ${nomeAnt} <i class="fas fa-arrow-right"></i> <b>${nomeNov}</b></div>`;
+    }
 
     if (parseFloat(ant.valor_refeicao) !== parseFloat(nov.valor_refeicao)) {
-        html += `<div class="log-diff"><b>Refeição:</b> ${formatar(ant.valor_refeicao)}${arrow}<b>${formatar(nov.valor_refeicao)}</b></div>`;
+        html += `<div class="log-diff"><b>Refeição:</b> ${formatar(ant.valor_refeicao)} <i class="fas fa-arrow-right"></i> <b>${formatar(nov.valor_refeicao)}</b></div>`;
     }
     if (parseFloat(ant.valor_diaria) !== parseFloat(nov.valor_diaria)) {
-        html += `<div class="log-diff"><b>Diária:</b> ${formatar(ant.valor_diaria)}${arrow}<b>${formatar(nov.valor_diaria)}</b></div>`;
+        html += `<div class="log-diff"><b>Diária:</b> ${formatar(ant.valor_diaria)} <i class="fas fa-arrow-right"></i> <b>${formatar(nov.valor_diaria)}</b></div>`;
     }
     if (parseFloat(ant.valor_alimentacao || 0) !== parseFloat(nov.valor_alimentacao || 0)) {
-        html += `<div class="log-diff"><b>Alimentação:</b> ${formatar(ant.valor_alimentacao)}${arrow}<b>${formatar(nov.valor_alimentacao)}</b></div>`;
+        html += `<div class="log-diff"><b>Alimentação:</b> ${formatar(ant.valor_alimentacao)} <i class="fas fa-arrow-right"></i> <b>${formatar(nov.valor_alimentacao)}</b></div>`;
     }
+
     return html || '<div class="log-diff text-muted">Sem alterações de valor.</div>';
 }
+
+window.executarAlternanciaStatus = async function(id, statusAtual) {
+    try {
+        const novoStatus = !statusAtual;
+        const { error } = await clienteSupabase.from('valores_diarias').update({ ativo: novoStatus }).eq('id', id);
+        if (error) throw error;
+        
+        const user = (await clienteSupabase.auth.getUser()).data.user;
+        await clienteSupabase.from('logs_auditoria').insert([{
+            tabela_afetada: 'valores_diarias',
+            acao: 'UPDATE_STATUS',
+            id_registro_afetado: id,
+            usuario_id: user?.id,
+            dados_novos: JSON.stringify({ ativo: novoStatus }),
+            data_hora: new Date().toISOString()
+        }]);
+        
+        mostrarToast(`Registro ${novoStatus ? 'ativado' : 'inativado'} com sucesso!`, "success");
+        listarDiarias();
+    } catch (err) {
+        console.error(err);
+        mostrarToast("Erro ao alterar o status.", "error");
+    }
+};
